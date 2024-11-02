@@ -37,7 +37,7 @@ func main() {
 	defer client.Disconnect(ctx)
 
 	// Initialize repositories, services, and handlers
-	repo, err := repositories.NewProjectRepo(ctx, logger, "myDatabaseName")
+	repo, err := repositories.NewProjectRepo(ctx, logger, "project")
 	if err != nil {
 		logger.Fatal("Failed to create repository: ", err)
 	}
