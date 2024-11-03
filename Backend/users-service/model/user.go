@@ -7,4 +7,10 @@ type User struct {
 	Password  string `json:"password" bson:"password"`
 	Email     string `json:"email" bson:"email"`
 	Username  string `json:"username,omitempty" bson:"username,omitempty"`
+	Role      string `json:"role" bson:"role"`
 }
+
+const (
+	RoleManager = "Manager"
+	RoleMember  = "Member"
+)
