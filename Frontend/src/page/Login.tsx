@@ -1,10 +1,9 @@
 import React from 'react';
-import { Form, Input, Button, Checkbox } from 'antd';
+import { Form, Input, Button } from 'antd';
 
 interface LoginFormValues {
 	username: string;
 	password: string;
-	remember: boolean;
 }
 
 const LoginPage: React.FC = () => {
@@ -29,11 +28,6 @@ const LoginPage: React.FC = () => {
 				>
 					<Input.Password placeholder='Password' />
 				</Form.Item>
-
-				<Form.Item name='remember' valuePropName='checked'>
-					<Checkbox>Remember me</Checkbox>
-				</Form.Item>
-
 				<Form.Item>
 					<Button type='primary' htmlType='submit' block>
 						Log in
