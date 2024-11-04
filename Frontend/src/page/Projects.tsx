@@ -1,35 +1,20 @@
-import React, { useEffect, useState } from 'react';
-import { List, Card, Button, notification } from 'antd';
-import { DTOCreateProject } from '../entities/models/CreateProject'; 
+import React from 'react';
+import { List, Card, Button} from 'antd';
 import { getAllProjects } from '../services/projectService';
+import { useQuery } from '@tanstack/react-query';
+import { DTOCreateProject } from '../entities/models/CreateProject';
 
 const ProjectList: React.FC = () => {
-  const [projects, setProjects] = useState<DTOCreateProject[]>([]);
+  const { data: projects} = useQuery<DTOCreateProject[]>({
+		queryKey: ['projects'],
+		queryFn: () => getAllProjects(),
+	});
 
-  useEffect(() => {
-    const fetchProjects = async () => {
-      try {
-        const response = await getAllProjects();
-        
-        if (response && response.data) {
-          setProjects(response.data); 
-        } else {
-          notification.error({
-            message: 'Error',
-            description: 'No project data available.',
-          });
-        }
-      } catch (error) {
-        notification.error({
-          message: 'Error',
-          description: 'Failed to load projects.',
-        });
-      }
-    };
+
   
-    fetchProjects();
-  }, []);
-  
+if (!projects || projects.length === 0) {
+	return <p>No projects available.</p>; 
+}
 
   return (
     <List

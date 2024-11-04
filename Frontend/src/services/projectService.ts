@@ -88,7 +88,7 @@ export const getAllProjects = async () => {
 	try {
 		const url = `${import.meta.env.VITE_PROJECT_BACKEND_URL}/projects`;
 		const response = await axios.get(url);
-		return response;
+		return response.data;
 	} catch (error) {
 		if (axios.isAxiosError(error)) {
 			console.error('Error response:', error.response?.data);
