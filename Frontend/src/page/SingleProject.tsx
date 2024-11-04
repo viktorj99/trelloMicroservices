@@ -7,7 +7,6 @@ import { useState } from 'react';
 import { Role } from '../entities/models/Role';
 const { Option } = Select;
 
-
 const users: User[] = [
 	{
 		username: 'john_doe',
@@ -33,6 +32,8 @@ const SingleProject = () => {
 		queryFn: () => getProject(id!),
 	});
 
+	console.log(project);
+
 	const queryClient = useQueryClient();
 
 	const mutation = useMutation({
@@ -53,10 +54,9 @@ const SingleProject = () => {
 	});
 
 	const addMutation = useMutation({
-
 		mutationFn: (username: string) => {
 			const newUser = users.find((user) => user.username === username);
-			addMember(newUser!, project.members, id!)
+			return addMember(newUser!, project.members, id!);
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['project', id] });
@@ -64,7 +64,7 @@ const SingleProject = () => {
 				message: 'Success',
 				description: 'Member added successfully!',
 			});
-			setIsModalVisible(false); // Close the modal after success
+			setIsModalVisible(false);
 		},
 		onError: (error: unknown) => {
 			notification.error({
@@ -80,7 +80,7 @@ const SingleProject = () => {
 
 	const handleOk = () => {
 		if (selectedUser) {
-			addMutation.mutate(selectedUser	);
+			addMutation.mutate(selectedUser);
 		} else {
 			notification.error({
 				message: 'Error',
@@ -93,22 +93,25 @@ const SingleProject = () => {
 		setIsModalVisible(false);
 	};
 
-	console.log(project);
 	return (
-		
 		<div>
 			<h1>{project?.name}</h1>
 			<p>Expected End Date: {project?.expectedEndDate}</p>
 			<p>Max Members: {project?.maxMembers}</p>
 			<p>Min Members: {project?.minMembers}</p>
 
-			<Button type="primary" onClick={showModal}>
+			<Button type='primary' onClick={showModal}>
 				Add Member
 			</Button>
 
-			<Modal title="Add a Member" visible={isModalVisible} onOk={handleOk} onCancel={handleCancel}>
+			<Modal
+				title='Add a Member'
+				open={isModalVisible}
+				onOk={handleOk}
+				onCancel={handleCancel}
+			>
 				<Select
-					placeholder="Select a user"
+					placeholder='Select a user'
 					style={{ width: '100%' }}
 					onChange={(value) => setSelectedUser(value)}
 				>
@@ -137,8 +140,3 @@ const SingleProject = () => {
 };
 
 export default SingleProject;
-
-function setIsModalVisible(arg0: boolean) {
-	throw new Error('Function not implemented.');
-}
-
