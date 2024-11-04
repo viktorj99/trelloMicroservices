@@ -82,4 +82,18 @@ export const addMember = async (newMember: User, members: User[], id: string) =>
 			throw new Error('An unexpected error occurred.');
 		}
 	}
+}
+
+export const getAllProjects = async () => {
+	try {
+		const url = `${import.meta.env.VITE_PROJECT_BACKEND_URL}/projects`;
+		const response = await axios.get(url);
+		return response;
+	} catch (error) {
+		if (axios.isAxiosError(error)) {
+			console.error('Error response:', error.response?.data);
+		} else {
+			console.error('Unexpected error:', error);
+		}
+	}
 };

@@ -10,6 +10,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Layout from './page/Layout';
 import CreateProject from './page/CreateProject';
 import SingleProject from './page/SingleProject';
+import ProjectList from './page/Projects'; // Import ProjectList component
 
 export const router = createBrowserRouter([
 	{
@@ -35,6 +36,10 @@ export const router = createBrowserRouter([
 			{
 				path: '/project/create',
 				element: <CreateProject />,
+			},
+			{
+				path: '/projects',
+				element: <ProjectList />,
 			},
 		],
 	},
