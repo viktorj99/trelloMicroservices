@@ -7,6 +7,7 @@ import (
 	"projects-service/model"
 	"projects-service/services"
 
+	"github.com/gorilla/mux"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -34,7 +35,8 @@ func (ph *ProjectHandler) GetAllProjects(w http.ResponseWriter, r *http.Request)
 func (ph *ProjectHandler) GetProjectById(w http.ResponseWriter, r *http.Request) {
 	ctx := context.TODO()
 
-	idParam := r.URL.Query().Get("id")
+	vars := mux.Vars(r)
+	idParam := vars["id"]
 	id, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
 		http.Error(w, "Invalid ID format", http.StatusBadRequest)
@@ -73,7 +75,8 @@ func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 func (ph *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := context.TODO()
 
-	idParam := r.URL.Query().Get("id")
+	vars := mux.Vars(r)
+	idParam := vars["id"]
 	id, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
 		http.Error(w, "Invalid ID format", http.StatusBadRequest)
@@ -99,7 +102,8 @@ func (ph *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) 
 func (ph *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
 	ctx := context.TODO()
 
-	idParam := r.URL.Query().Get("id")
+	vars := mux.Vars(r)
+	idParam := vars["id"]
 	id, err := primitive.ObjectIDFromHex(idParam)
 	if err != nil {
 		http.Error(w, "Invalid ID format", http.StatusBadRequest)

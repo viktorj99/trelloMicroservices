@@ -2,11 +2,11 @@ package repositories
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"os"
 	"projects-service/model"
 
-	// NoSQL: module containing Mongo api client
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -21,14 +21,19 @@ type ProjectRepo struct {
 
 func NewProjectRepo(ctx context.Context, logger *log.Logger, dbName string) (*ProjectRepo, error) {
 	dburi := os.Getenv("MONGO_DB_URI")
+	if dburi == "" {
+		return nil, fmt.Errorf("environment variable MONGO_DB_URI is not set")
+	}
 
 	client, err := mongo.NewClient(options.Client().ApplyURI(dburi))
 	if err != nil {
+		logger.Println("Failed to create MongoDB client:", err)
 		return nil, err
 	}
 
 	err = client.Connect(ctx)
 	if err != nil {
+		logger.Println("Failed to connect to MongoDB:", err)
 		return nil, err
 	}
 
@@ -39,6 +44,10 @@ func NewProjectRepo(ctx context.Context, logger *log.Logger, dbName string) (*Pr
 	}, nil
 }
 
+func (pr *ProjectRepo) Close(ctx context.Context) error {
+	return pr.cli.Disconnect(ctx)
+}
+
 func (pr *ProjectRepo) collection() *mongo.Collection {
 	return pr.cli.Database(pr.dbName).Collection("projects")
 }
@@ -47,11 +56,13 @@ func (pr *ProjectRepo) GetAll(ctx context.Context) ([]model.Project, error) {
 	var projects []model.Project
 	cursor, err := pr.collection().Find(ctx, bson.M{})
 	if err != nil {
+		pr.logger.Println("Error retrieving all projects:", err)
 		return nil, err
 	}
 	defer cursor.Close(ctx)
 
 	if err = cursor.All(ctx, &projects); err != nil {
+		pr.logger.Println("Error decoding all projects:", err)
 		return nil, err
 	}
 
@@ -62,6 +73,7 @@ func (pr *ProjectRepo) GetById(ctx context.Context, id primitive.ObjectID) (*mod
 	var project model.Project
 	err := pr.collection().FindOne(ctx, bson.M{"_id": id}).Decode(&project)
 	if err != nil {
+		pr.logger.Println("Error retrieving project by ID:", err)
 		return nil, err
 	}
 
@@ -72,6 +84,7 @@ func (pr *ProjectRepo) Insert(ctx context.Context, project *model.Project) (*mon
 	project.ID = primitive.NewObjectID()
 	result, err := pr.collection().InsertOne(ctx, project)
 	if err != nil {
+		pr.logger.Println("Error inserting project:", err)
 		return nil, err
 	}
 
@@ -82,6 +95,7 @@ func (pr *ProjectRepo) Update(ctx context.Context, id primitive.ObjectID, update
 	update := bson.M{"$set": updateData}
 	result, err := pr.collection().UpdateOne(ctx, bson.M{"_id": id}, update)
 	if err != nil {
+		pr.logger.Println("Error updating project:", err)
 		return nil, err
 	}
 
@@ -91,6 +105,7 @@ func (pr *ProjectRepo) Update(ctx context.Context, id primitive.ObjectID, update
 func (pr *ProjectRepo) Delete(ctx context.Context, id primitive.ObjectID) (*mongo.DeleteResult, error) {
 	result, err := pr.collection().DeleteOne(ctx, bson.M{"_id": id})
 	if err != nil {
+		pr.logger.Println("Error deleting project:", err)
 		return nil, err
 	}
 

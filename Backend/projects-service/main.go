@@ -9,13 +9,14 @@ import (
 	"projects-service/repositories"
 	"projects-service/services"
 
+	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-func enableCORS(handlerFunc http.HandlerFunc) http.HandlerFunc {
-	return func(w http.ResponseWriter, r *http.Request) {
+func enableCORS(handler http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
@@ -25,8 +26,8 @@ func enableCORS(handlerFunc http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		handlerFunc(w, r)
-	}
+		handler.ServeHTTP(w, r)
+	})
 }
 
 func main() {
@@ -56,11 +57,16 @@ func main() {
 	service := services.NewProjectService(repo)
 	handler := handlers.NewProjectHandler(service)
 
-	http.HandleFunc("/projects", enableCORS(handler.GetAllProjects))
-	http.HandleFunc("/project", enableCORS(handler.GetProjectById))
-	http.HandleFunc("/project/create", enableCORS(handler.CreateProject))
-	http.HandleFunc("/project/update", enableCORS(handler.UpdateProject))
-	http.HandleFunc("/project/delete", enableCORS(handler.DeleteProject))
+	r := mux.NewRouter()
+
+	r.HandleFunc("/projects", handler.GetAllProjects).Methods("GET")
+	r.HandleFunc("/project/{id}", handler.GetProjectById).Methods("GET")
+	r.HandleFunc("/project/create", handler.CreateProject).Methods("POST")
+	r.HandleFunc("/project/{id}", handler.UpdateProject).Methods("PUT")
+	r.HandleFunc("/project/{id}", handler.DeleteProject).Methods("DELETE")
+
+	// Wrap router with CORS middleware
+	http.Handle("/", enableCORS(r))
 
 	port := os.Getenv("PORT")
 	if port == "" {
