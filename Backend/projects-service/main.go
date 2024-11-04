@@ -64,7 +64,7 @@ func main() {
 	r.HandleFunc("/project/create", handler.CreateProject).Methods("POST")
 	r.HandleFunc("/project/{id}", handler.UpdateProject).Methods("PUT")
 	r.HandleFunc("/project/{id}", handler.DeleteProject).Methods("DELETE")
-
+	
 	// Wrap router with CORS middleware
 	http.Handle("/", enableCORS(r))
 
