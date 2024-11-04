@@ -61,3 +61,27 @@ export const handleDeleteMember = async (username: string, members: User[], id: 
 		}
 	}
 };
+
+// Add a new function in projectService.ts
+export const addMember = async (newMember: User, members: User[], id: string) => {
+	const updatedMembers = [...members, newMember]; // Add the new member to the existing list
+
+	const payload = {
+		members: updatedMembers,
+	};
+	try {
+		const url = `${import.meta.env.VITE_PROJECT_BACKEND_URL}/project/${id}`;
+		return await axios.put(url, payload);
+	} catch (error) {
+		if (axios.isAxiosError(error)) {
+			console.error('Error response:', error.response?.data);
+			throw new Error(
+				error.response?.data?.message || 'An error occurred while adding the member.'
+			);
+		} else {
+			console.error('Unexpected error:', error);
+			throw new Error('An unexpected error occurred.');
+		}
+	}
+};
+
