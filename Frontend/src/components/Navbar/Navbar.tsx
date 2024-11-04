@@ -18,6 +18,9 @@ const Navbar: React.FC = () => {
 			<Menu.Item key='projectCreate' icon={<SettingOutlined />}>
 				<Link to='/project/create'>Create Project</Link>
 			</Menu.Item>
+			<Menu.Item key='projects' icon={<SettingOutlined />}>
+				<Link to='/projects'>Projects</Link>
+			</Menu.Item>
 		</Menu>
 	);
 };

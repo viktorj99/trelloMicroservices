@@ -1,11 +1,8 @@
-module projects-service
+module users-service
 
 go 1.22.1
 
-require (
-	go.mongodb.org/mongo-driver v1.17.1
-	users-service v0.0.0
-)
+require go.mongodb.org/mongo-driver v1.17.1
 
 require (
 	github.com/golang/snappy v0.0.4 // indirect
