@@ -4,6 +4,7 @@ import { User } from '../entities/models/User';
 import { Role } from '../entities/models/Role';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createProject } from '../services/projectService';
+import moment from 'moment';
 
 const { Option } = Select;
 
@@ -44,6 +45,9 @@ const CreateProjectForm: React.FC = () => {
 
     mutation.mutate({
       ...values,
+      minMembers: Number(values.minMembers),
+      maxMembers: Number(values.maxMembers),
+      expectedEndDate: moment(values.expectedEndDate).format('YYYY-MM-DD'), 
       manager: selectedManager,
       members: selectedMembers
     });    
