@@ -2,6 +2,7 @@ package services
 
 import (
 	"context"
+	"errors"
 	"log"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -48,11 +49,19 @@ func (s *TaskService) GetTaskById(ctx context.Context, id string) (*model.Task, 
 }
 
 func (s *TaskService) CreateTask(ctx context.Context, task *model.Task) (*model.Task, error) {
+	if task.Status != "PENDING" {
+		err := errors.New("task status must be 'PENDING'")
+		s.logger.Println(err)
+		return nil, err
+	}
+
 	task.ID = primitive.NewObjectID()
+
 	_, err := s.repo.Insert(ctx, task)
 	if err != nil {
 		s.logger.Println("Failed to create task:", err)
 		return nil, err
 	}
+
 	return task, nil
 }
