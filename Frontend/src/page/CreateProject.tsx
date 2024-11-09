@@ -25,7 +25,7 @@ const CreateProjectForm: React.FC = () => {
 		onError: (error) => {
 			notification.error({
 				message: 'Error',
-				description: `Project creation failed: ${(error as Error).message}`,
+				description: `${(error as Error).message}`,
 			});
 		},
 	});
@@ -87,7 +87,15 @@ const CreateProjectForm: React.FC = () => {
 			<Form.Item
 				label='Minimum Members'
 				name='minMembers'
-				rules={[{ required: true, message: 'Please input the minimum number of members!' }]}
+				rules={[
+					{ required: true, message: 'Please input the minimum number of members!' },
+					{
+						validator: (_, value) =>
+							value >= 1
+								? Promise.resolve()
+								: Promise.reject(new Error('Minimum members cannot be less than 1')),
+					}
+				]}
 			>
 				<Input type='number' placeholder='Enter minimum members' />
 			</Form.Item>
@@ -95,7 +103,7 @@ const CreateProjectForm: React.FC = () => {
 			<Form.Item
 				label='Maximum Members'
 				name='maxMembers'
-				rules={[{ required: true, message: 'Please input the maximum number of members!' }]}
+				rules={[{ required: true, message: 'Please input the maximum number of members!' },]}
 			>
 				<Input type='number' placeholder='Enter maximum members' />
 			</Form.Item>

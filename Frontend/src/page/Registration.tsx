@@ -21,7 +21,7 @@ const RegistrationPage: React.FC = () => {
 		onError: (error) => {
 			notification.error({
 				message: 'Error',
-				description: `Registration failed: ${(error as Error).message}`,
+				description: ` ${(error as Error).message}`,
 			});
 		},
 	});

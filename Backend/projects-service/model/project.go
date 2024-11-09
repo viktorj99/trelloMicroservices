@@ -46,9 +46,9 @@ type Project struct {
 }
 
 type User struct {
-	ID      primitive.ObjectID `bson:"_id,omitempty" json:"id"`
-	Usename string             `bson:"username,omitempty" json:"username"`
-	Role    string             `bson:"role,omitempty" json:"role"`
+	ID       primitive.ObjectID `bson:"_id,omitempty" json:"id"`
+	Username string             `bson:"username,omitempty" json:"username"`
+	Role     string             `bson:"role,omitempty" json:"role"`
 }
 
 func (p *Project) ToJSON(w io.Writer) error {

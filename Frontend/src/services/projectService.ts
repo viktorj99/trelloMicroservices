@@ -12,7 +12,7 @@ export const createProject = async (user: DTOCreateProject) => {
 		if (axios.isAxiosError(error)) {
 			console.error('Error response:', error.response?.data);
 			throw new Error(
-				error.response?.data?.message || 'An error occurred while creating the project.'
+				error.response?.data || 'An error occurred while creating the project.'
 			);
 		} else {
 			console.error('Unexpected error:', error);
@@ -31,7 +31,7 @@ export const getProject = async (id: string) => {
 		if (axios.isAxiosError(error)) {
 			console.error('Error response:', error.response?.data);
 			throw new Error(
-				error.response?.data?.message || 'An error occurred while creating the project.'
+				error.response?.data || 'An error occurred while creating the project.'
 			);
 		} else {
 			console.error('Unexpected error:', error);
