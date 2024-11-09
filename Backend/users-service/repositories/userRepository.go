@@ -54,3 +54,19 @@ func CreateUser(user model.User) error {
 	}
 	return nil
 }
+
+func GetUserByUsername(username string) (*model.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	var user model.User
+	err := userCollection.FindOne(ctx, bson.M{"username": username}).Decode(&user)
+	if err == mongo.ErrNoDocuments {
+		return nil, errors.New("user not found")
+	} else if err != nil {
+		log.Println("Error retrieving user by username:", err)
+		return nil, err
+	}
+
+	return &user, nil
+}
