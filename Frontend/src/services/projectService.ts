@@ -84,6 +84,7 @@ export const addMember = async (newMember: User, members: User[], id: string) =>
 	}
 }
 
+
 export const getAllProjects = async () => {
 	try {
 		const url = `${import.meta.env.VITE_PROJECT_BACKEND_URL}/projects`;

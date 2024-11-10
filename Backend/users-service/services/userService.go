@@ -46,3 +46,11 @@ func RegisterUser(user model.User) error {
 
 	return nil
 }
+
+func GetAllUsers() ([]model.User, error) {
+	return repositories.GetAllUsers()
+}
+
+func GetUserByID(userID string) (model.User, error) {
+	return repositories.GetUserByID(userID)
+}
