@@ -2,16 +2,27 @@ package services
 
 import (
 	"errors"
+	"os"
 	"regexp"
 	"strings"
+	"time"
 	"users-service/model"
 	"users-service/repositories"
 	"users-service/utils"
+
+	"github.com/dgrijalva/jwt-go"
+	"golang.org/x/crypto/bcrypt"
 )
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 
 var validDomains = []string{"gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "example.com"}
+
+type Claims struct {
+	Username string `json:"username"`
+	Role     string `json:"role"`
+	jwt.StandardClaims
+}
 
 func isValidDomain(email string) bool {
 	parts := strings.Split(email, "@")
@@ -53,6 +64,51 @@ func RegisterUser(user model.User) error {
 	}
 
 	return nil
+}
+
+func Login(username, password string) (string, error) {
+	user, err := repositories.GetUserByUsername(username)
+	if err != nil {
+		return "", errors.New("user not found")
+	}
+
+	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
+	if err != nil {
+		return "", errors.New("invalid password")
+	}
+
+	token, err := generateJWTToken(user.Username, user.Role)
+	if err != nil {
+		return "", err
+	}
+
+	return token, nil
+}
+
+func generateJWTToken(username, role string) (string, error) {
+	if role != model.RoleManager && role != model.RoleMember {
+		return "", errors.New("invalid role")
+	}
+
+	expirationTime := time.Now().Add(24 * time.Hour)
+
+	claims := &Claims{
+		Username: username,
+		Role:     role,
+		StandardClaims: jwt.StandardClaims{
+			ExpiresAt: expirationTime.Unix(),
+		},
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+
+	secretKey := os.Getenv("JWT_SECRET")
+	tokenString, err := token.SignedString([]byte(secretKey))
+	if err != nil {
+		return "", err
+	}
+
+	return tokenString, nil
 }
 
 func GetAllUsers() ([]model.User, error) {

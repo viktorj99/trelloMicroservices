@@ -34,6 +34,7 @@ func main() {
 	http.HandleFunc("/register", enableCORS(handlers.RegisterUser))
 	http.HandleFunc("/users", enableCORS(handlers.GetAllUsers))
 	http.HandleFunc("/users/", enableCORS(handlers.GetUserByID))
+	http.HandleFunc("/login", enableCORS(handlers.LoginUser))
 
 	log.Println("Server is running on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
