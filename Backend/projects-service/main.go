@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"projects-service/auth"
 	"projects-service/handlers"
 	"projects-service/repositories"
 	"projects-service/services"
@@ -59,13 +60,12 @@ func main() {
 
 	r := mux.NewRouter()
 
-	r.HandleFunc("/projects", handler.GetAllProjects).Methods("GET")
-	r.HandleFunc("/project/{id}", handler.GetProjectById).Methods("GET")
-	r.HandleFunc("/project/create", handler.CreateProject).Methods("POST")
-	r.HandleFunc("/project/{id}", handler.UpdateProject).Methods("PUT")
-	r.HandleFunc("/project/{id}", handler.DeleteProject).Methods("DELETE")
-	
-	// Wrap router with CORS middleware
+	r.Handle("/projects", auth.EnableBoth(http.HandlerFunc(handler.GetAllProjects))).Methods("GET")
+	r.Handle("/project/{id}", auth.EnableBoth(http.HandlerFunc(handler.GetProjectById))).Methods("GET")
+	r.Handle("/project/create", auth.EnableManager(http.HandlerFunc(handler.CreateProject))).Methods("POST")
+	r.Handle("/project/{id}", auth.EnableManager(http.HandlerFunc(handler.UpdateProject))).Methods("PUT")
+	r.Handle("/project/{id}", auth.EnableManager(http.HandlerFunc(handler.DeleteProject))).Methods("DELETE")
+
 	http.Handle("/", enableCORS(r))
 
 	port := os.Getenv("PORT")
