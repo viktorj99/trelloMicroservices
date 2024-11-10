@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { addMember, getProject, handleDeleteMember } from '../services/projectService';
-import { Button, Modal, notification, Select, Table } from 'antd';
+import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
 import { User } from '../entities/models/User';
 import { useState } from 'react';
 import { Role } from '../entities/models/Role';
+import { createTask } from '../services/taskService';
 const { Option } = Select;
 
 const users: User[] = [
@@ -25,7 +26,9 @@ const users: User[] = [
 const SingleProject = () => {
 	const { id } = useParams<{ id: string }>();
 	const [isModalVisible, setIsModalVisible] = useState(false);
+	const [isTaskModalVisible, setIsTaskModalVisible] = useState(false);
 	const [selectedUser, setSelectedUser] = useState<string | null>(null);
+	const [taskForm] = Form.useForm();
 
 	const { data: project } = useQuery({
 		queryKey: ['project', id],
@@ -74,11 +77,27 @@ const SingleProject = () => {
 		},
 	});
 
-	const showModal = () => {
-		setIsModalVisible(true);
-	};
 
-	const handleOk = () => {
+	const taskMutation = useMutation({
+		mutationFn: createTask,
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['tasks'] });
+			notification.success({
+				message: 'Success',
+				description: 'Task created successfully!',
+			});
+			taskForm.resetFields();
+			setIsTaskModalVisible(false);
+		},
+		onError: (error: unknown) => {
+			notification.error({
+				message: 'Error',
+				description: `Task creation failed: ${(error as Error).message}`,
+			});
+		},
+	});
+
+	const handleAddMember = () => {
 		if (selectedUser) {
 			addMutation.mutate(selectedUser);
 		} else {
@@ -89,8 +108,8 @@ const SingleProject = () => {
 		}
 	};
 
-	const handleCancel = () => {
-		setIsModalVisible(false);
+	const handleCreateTask = (values: any) => {
+		taskMutation.mutate(values);
 	};
 
 	return (
@@ -100,15 +119,20 @@ const SingleProject = () => {
 			<p>Max Members: {project?.maxMembers}</p>
 			<p>Min Members: {project?.minMembers}</p>
 
-			<Button type='primary' onClick={showModal}>
+			<Button type='primary' onClick={() => setIsModalVisible(true)}>
 				Add Member
 			</Button>
 
+			<Button type='primary' onClick={() => setIsTaskModalVisible(true)} style={{ marginLeft: 16 }}>
+				Create Task
+			</Button>
+
+			{/* Modal for adding a member */}
 			<Modal
 				title='Add a Member'
 				open={isModalVisible}
-				onOk={handleOk}
-				onCancel={handleCancel}
+				onOk={handleAddMember}
+				onCancel={() => setIsModalVisible(false)}
 			>
 				<Select
 					placeholder='Select a user'
@@ -121,6 +145,50 @@ const SingleProject = () => {
 						</Option>
 					))}
 				</Select>
+			</Modal>
+
+			{/* Modal for creating a task */}
+			<Modal
+				title='Create Task'
+				open={isTaskModalVisible}
+				onCancel={() => setIsTaskModalVisible(false)}
+				footer={null}
+			>
+				<Form form={taskForm} layout='vertical' onFinish={handleCreateTask}>
+					<Form.Item
+						label='Task Title'
+						name='title'
+						rules={[{ required: true, message: 'Please enter the task title!' }]}
+					>
+						<Input placeholder='Enter task title' />
+					</Form.Item>
+
+					<Form.Item
+						label='Description'
+						name='description'
+						rules={[{ required: true, message: 'Please enter the description!' }]}
+					>
+						<Input.TextArea placeholder='Enter task description' />
+					</Form.Item>
+
+					{/* Hidden field for setting status to "PENDING" */}
+					<Form.Item name='status' initialValue='PENDING' hidden>
+						<Input type='hidden' />
+					</Form.Item>
+
+					<Form.Item
+						label='Project ID'
+						name='project'
+						initialValue={id}
+						hidden
+					/>
+
+					<Form.Item>
+						<Button type='primary' htmlType='submit'>
+							Create Task
+						</Button>
+					</Form.Item>
+				</Form>
 			</Modal>
 
 			<Table dataSource={project?.members} rowKey='username'>

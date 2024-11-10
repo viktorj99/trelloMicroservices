@@ -62,6 +62,24 @@ func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// Validation: Minimum members
+	if project.MinMembers <= 0 {
+		http.Error(w, "Minimum members must be greater than 0", http.StatusBadRequest)
+		return
+	}
+
+	// Validation: Maximum members
+	if project.MaxMembers < project.MinMembers {
+		http.Error(w, "Maximum members cannot be less than minimum members", http.StatusBadRequest)
+		return
+	}
+
+	// Validation: between MinMembers and MaxMembers
+	if len(project.Members) < project.MinMembers || len(project.Members) > project.MaxMembers {
+		http.Error(w, "The number of members must be between the minimum and maximum limits", http.StatusBadRequest)
+		return
+	}
+
 	result, err := ph.service.CreateProject(ctx, &project)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
