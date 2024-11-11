@@ -62,13 +62,13 @@ func isCommonPassword(password string) (bool, error) {
 }
 
 func RegisterUser(user model.User) error {
-	isCommon, err := isCommonPassword(user.Password)
-	if err != nil {
-		return fmt.Errorf("error checking common password: %v", err)
-	}
-	if isCommon {
-		return errors.New("password is too common, please choose a more secure password")
-	}
+	// isCommon, err := isCommonPassword(user.Password)
+	// if err != nil {
+	// 	return fmt.Errorf("error checking common password: %v", err)
+	// }
+	// if isCommon {
+	// 	return errors.New("password is too common, please choose a more secure password")
+	// }
 
 	if user.FirstName == "" || user.LastName == "" || user.Email == "" || user.Username == "" || user.Password == "" || user.Role == "" {
 		return errors.New("all fields are required")

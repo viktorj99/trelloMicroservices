@@ -6,7 +6,6 @@ import (
 	"users-service/database"
 	"users-service/handlers"
 	"users-service/repositories"
-	"users-service/utils"
 )
 
 func enableCORS(handlerFunc http.HandlerFunc) http.HandlerFunc {
@@ -25,10 +24,10 @@ func enableCORS(handlerFunc http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
-	err := utils.LoadCommonPasswordsToConsul("config/common_passwords.txt")
-	if err != nil {
-		log.Fatalf("Failed to load common passwords to Consul: %v", err)
-	}
+	// err := utils.LoadCommonPasswordsToConsul("config/common_passwords.txt")
+	// if err != nil {
+	// 	log.Fatalf("Failed to load common passwords to Consul: %v", err)
+	// }
 
 	client, err := database.GetMongoClient()
 	if err != nil {
