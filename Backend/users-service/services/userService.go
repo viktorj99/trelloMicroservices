@@ -12,6 +12,7 @@ import (
 	"users-service/utils"
 
 	"github.com/dgrijalva/jwt-go"
+	"github.com/hashicorp/consul/api"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -39,7 +40,36 @@ func isValidDomain(email string) bool {
 	return false
 }
 
+var consulClient *api.Client
+
+func init() {
+	var err error
+	consulClient, err = api.NewClient(api.DefaultConfig())
+	if err != nil {
+		fmt.Printf("Failed to create Consul client: %v\n", err)
+	}
+}
+
+func isCommonPassword(password string) (bool, error) {
+	key := fmt.Sprintf("common_passwords/%s", password)
+
+	kvPair, _, err := consulClient.KV().Get(key, nil)
+	if err != nil {
+		return false, err
+	}
+
+	return kvPair != nil, nil
+}
+
 func RegisterUser(user model.User) error {
+	isCommon, err := isCommonPassword(user.Password)
+	if err != nil {
+		return fmt.Errorf("error checking common password: %v", err)
+	}
+	if isCommon {
+		return errors.New("password is too common, please choose a more secure password")
+	}
+
 	if user.FirstName == "" || user.LastName == "" || user.Email == "" || user.Username == "" || user.Password == "" || user.Role == "" {
 		return errors.New("all fields are required")
 	}
