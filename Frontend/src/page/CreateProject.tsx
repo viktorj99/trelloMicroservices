@@ -2,9 +2,11 @@ import { Form, Input, DatePicker, Button, Select, notification } from 'antd';
 import { CreateProject } from '../entities/models/CreateProject';
 import { User } from '../entities/models/User';
 import { Role } from '../entities/models/Role';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { createProject } from '../services/projectService';
 import moment from 'moment';
+import { getTokenData } from '../utils/authHelpers';
+import { getAllUserMembers } from '../services/userService';
 
 const { Option } = Select;
 
@@ -12,6 +14,7 @@ const CreateProjectForm: React.FC = () => {
 	const [form] = Form.useForm();
 
 	const queryClient = useQueryClient();
+
 	const mutation = useMutation({
 		mutationFn: createProject,
 		onSuccess: () => {
@@ -30,9 +33,23 @@ const CreateProjectForm: React.FC = () => {
 		},
 	});
 
+	const { data: users } = useQuery<User[]>({
+		queryKey: ['projects'],
+		queryFn: async () => await getAllUserMembers(),
+	});
+
 	const onFinish = (values: CreateProject) => {
+		const tokenData = getTokenData();
+		if (!tokenData || tokenData.role !== 'Manager') {
+			notification.error({
+				message: 'Error',
+				description: 'Only managers can create projects.',
+			});
+			return;
+		}
+
 		const selectedManager: User = {
-			username: values.manager?.username as string,
+			username: tokenData.username,
 			role: Role.Manager,
 		};
 
@@ -51,20 +68,20 @@ const CreateProjectForm: React.FC = () => {
 		});
 	};
 
-	const users: User[] = [
-		{
-			username: 'john_doe',
-			role: Role.Member,
-		},
-		{
-			username: 'jane_smith',
-			role: Role.Member,
-		},
-		{
-			username: 'aliceUZemljiCuda',
-			role: Role.Member,
-		},
-	];
+	// const users: User[] = [
+	// 	{
+	// 		username: 'john_doe',
+	// 		role: Role.Member,
+	// 	},
+	// 	{
+	// 		username: 'jane_smith',
+	// 		role: Role.Member,
+	// 	},
+	// 	{
+	// 		username: 'aliceUZemljiCuda',
+	// 		role: Role.Member,
+	// 	},
+	// ];
 
 	return (
 		<Form form={form} layout='vertical' onFinish={onFinish} initialValues={{ role: 'member' }}>
@@ -93,8 +110,10 @@ const CreateProjectForm: React.FC = () => {
 						validator: (_, value) =>
 							value >= 1
 								? Promise.resolve()
-								: Promise.reject(new Error('Minimum members cannot be less than 1')),
-					}
+								: Promise.reject(
+										new Error('Minimum members cannot be less than 1')
+								  ),
+					},
 				]}
 			>
 				<Input type='number' placeholder='Enter minimum members' />
@@ -103,28 +122,14 @@ const CreateProjectForm: React.FC = () => {
 			<Form.Item
 				label='Maximum Members'
 				name='maxMembers'
-				rules={[{ required: true, message: 'Please input the maximum number of members!' },]}
+				rules={[{ required: true, message: 'Please input the maximum number of members!' }]}
 			>
 				<Input type='number' placeholder='Enter maximum members' />
 			</Form.Item>
 
-			<Form.Item
-				label='Manager'
-				name='manager'
-				rules={[{ required: true, message: 'Please select a manager!' }]}
-			>
-				<Select placeholder='Select a manager'>
-					{users.map((user) => (
-						<Option key={user.username} value={user.username}>
-							{user.username}
-						</Option>
-					))}
-				</Select>
-			</Form.Item>
-
 			<Form.Item label='Members' name='members'>
 				<Select mode='multiple' placeholder='Select members'>
-					{users.map((user) => (
+					{users?.map((user) => (
 						<Option key={user.username} value={user.username}>
 							{user.username}
 						</Option>

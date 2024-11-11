@@ -1,12 +1,17 @@
 import axios from 'axios';
 import { DTOCreateProject } from '../entities/models/CreateProject';
 import { User } from '../entities/models/User';
+import { getToken } from '../utils/authHelpers';
 
 export const createProject = async (user: DTOCreateProject) => {
 	try {
 		const url = `${import.meta.env.VITE_PROJECT_BACKEND_URL}/project/create`;
-
-		const response = await axios.post(url, user);
+		const token = getToken();
+		const response = await axios.post(url, user, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+			},
+		});
 		return response;
 	} catch (error) {
 		if (axios.isAxiosError(error)) {
@@ -87,8 +92,13 @@ export const addMember = async (newMember: User, members: User[], id: string) =>
 
 export const getAllProjects = async () => {
 	try {
+		const token = getToken();
 		const url = `${import.meta.env.VITE_PROJECT_BACKEND_URL}/projects`;
-		const response = await axios.get(url);
+		const response = await axios.get(url, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+			},
+		});
 		return response.data;
 	} catch (error) {
 		if (axios.isAxiosError(error)) {

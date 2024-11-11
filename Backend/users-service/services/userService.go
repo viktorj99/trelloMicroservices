@@ -2,6 +2,7 @@ package services
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"regexp"
 	"strings"
@@ -101,6 +102,7 @@ func generateJWTToken(username, role string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	fmt.Print(role)
 
 	secretKey := os.Getenv("JWT_SECRET")
 	tokenString, err := token.SignedString([]byte(secretKey))
@@ -113,6 +115,10 @@ func generateJWTToken(username, role string) (string, error) {
 
 func GetAllUsers() ([]model.User, error) {
 	return repositories.GetAllUsers()
+}
+
+func GetAllUserMembers() ([]model.User, error) {
+	return repositories.GetAllUserMembers()
 }
 
 func GetUserByID(userID string) (model.User, error) {
