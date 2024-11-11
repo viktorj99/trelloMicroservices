@@ -29,8 +29,14 @@ export const createProject = async (user: DTOCreateProject) => {
 export const getProject = async (id: string) => {
 	try {
 		const url = `${import.meta.env.VITE_PROJECT_BACKEND_URL}/project/${id}`;
+		const token = getToken();
+		
 
-		const response = await axios.get(url);
+		const response = await axios.get(url, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+			},
+		});	
 		return response.data;
 	} catch (error) {
 		if (axios.isAxiosError(error)) {

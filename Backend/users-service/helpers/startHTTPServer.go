@@ -8,6 +8,7 @@ import (
 
 func StartHTTPServer() {
 	http.HandleFunc("/register", enableCORS(handlers.RegisterUser))
+	http.HandleFunc("/login", enableCORS(handlers.LoginUser))
 	http.HandleFunc("/users", enableCORS(handlers.GetAllUsers))
 	http.HandleFunc("/users/", enableCORS(handlers.GetUserByID))
 	log.Println("HTTP server is running on port 8080...")

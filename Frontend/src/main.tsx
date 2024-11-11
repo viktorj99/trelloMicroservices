@@ -32,7 +32,7 @@ export const router = createBrowserRouter([
 			},
 			{
 				path: '/project/:id',
-				element: <SingleProject />,
+				element: (isManager() || isMember()) ? <SingleProject /> : <Navigate to="/login"/>,
 			},
 			{
 				path: '/project/create',
