@@ -85,6 +85,36 @@ func GetAllUsers() ([]model.User, error) {
 	return users, nil
 }
 
+func GetAllUserMembers() ([]model.User, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"role": "Member"}
+	cursor, err := userCollection.Find(ctx, filter)
+	if err != nil {
+		log.Println("Error finding users:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	var users []model.User
+	for cursor.Next(ctx) {
+		var user model.User
+		if err := cursor.Decode(&user); err != nil {
+			log.Println("Error decoding user:", err)
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	if err := cursor.Err(); err != nil {
+		log.Println("Cursor error:", err)
+		return nil, err
+	}
+
+	return users, nil
+}
+
 func GetUserByID(userID string) (model.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()

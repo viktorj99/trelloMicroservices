@@ -117,6 +117,10 @@ func GetAllUsers() ([]model.User, error) {
 	return repositories.GetAllUsers()
 }
 
+func GetAllUserMembers() ([]model.User, error) {
+	return repositories.GetAllUserMembers()
+}
+
 func GetUserByID(userID string) (model.User, error) {
 	return repositories.GetUserByID(userID)
 }
