@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package userservice;
+
+option go_package = "/userpb";
+
+service UserService {
+    rpc GetAllUsers (GetAllUsersRequest) returns (GetAllUsersResponse);
+  }
+  
+  message GetAllUsersRequest {}
+  
+  message GetAllUsersResponse {
+    repeated User users = 1;
+  }
+
+// User message representing a user object
+message User {
+    string id = 1;
+    string first_name = 2;
+    string last_name = 3;
+    string password = 4;
+    string email = 5;
+    string username = 6;
+    string role = 7;
+}
