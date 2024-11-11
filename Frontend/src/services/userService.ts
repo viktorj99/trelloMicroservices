@@ -57,3 +57,22 @@ export const getAllUserMembers = async () => {
 		}
 	}
 };
+
+export const verifyCode = async (code: string) => {
+	try {
+	  // Make the request to the Go backend for verification
+	  const url = `${import.meta.env.VITE_USER_BACKEND_URL}/verification`; // Assuming the backend has a /verify-code endpoint
+	  const response = await axios.post(url, { code });
+  
+	  // Return the response from the backend
+	  return response;
+	} catch (error) {
+	  if (axios.isAxiosError(error)) {
+		console.error('Error response:', error.response?.data);
+		throw new Error(error.response?.data || 'Verification failed. Please try again.');
+	  } else {
+		console.error('Unexpected error:', error);
+		throw new Error('An unexpected error occurred. Please try again.');
+	  }
+	}
+  };

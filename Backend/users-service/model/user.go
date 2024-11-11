@@ -8,6 +8,7 @@ type User struct {
 	Email     string `json:"email" bson:"email"`
 	Username  string `json:"username,omitempty" bson:"username,omitempty"`
 	Role      string `json:"role" bson:"role"`
+	IsActive  bool   `json:"is_active" bson:"is_active"`
 }
 
 const (
