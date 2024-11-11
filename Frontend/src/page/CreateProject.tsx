@@ -5,6 +5,7 @@ import { Role } from '../entities/models/Role';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { createProject } from '../services/projectService';
 import moment from 'moment';
+import { getTokenData } from '../utils/authHelpers';
 
 const { Option } = Select;
 
@@ -31,8 +32,17 @@ const CreateProjectForm: React.FC = () => {
 	});
 
 	const onFinish = (values: CreateProject) => {
+		const tokenData = getTokenData();
+		if (!tokenData || tokenData.role !== 'Manager') {
+			notification.error({
+				message: 'Error',
+				description: 'Only managers can create projects.',
+			});
+			return;
+		}
+
 		const selectedManager: User = {
-			username: values.manager?.username as string,
+			username: tokenData.username,
 			role: Role.Manager,
 		};
 
@@ -106,20 +116,6 @@ const CreateProjectForm: React.FC = () => {
 				rules={[{ required: true, message: 'Please input the maximum number of members!' },]}
 			>
 				<Input type='number' placeholder='Enter maximum members' />
-			</Form.Item>
-
-			<Form.Item
-				label='Manager'
-				name='manager'
-				rules={[{ required: true, message: 'Please select a manager!' }]}
-			>
-				<Select placeholder='Select a manager'>
-					{users.map((user) => (
-						<Option key={user.username} value={user.username}>
-							{user.username}
-						</Option>
-					))}
-				</Select>
 			</Form.Item>
 
 			<Form.Item label='Members' name='members'>
