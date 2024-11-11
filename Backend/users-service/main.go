@@ -8,6 +8,11 @@ import (
 )
 
 func main() {
+	// err := utils.LoadCommonPasswordsToConsul("config/common_passwords.txt")
+	// if err != nil {
+	// 	log.Fatalf("Failed to load common passwords to Consul: %v", err)
+	// }
+
 	client, err := database.GetMongoClient()
 	if err != nil {
 		log.Fatal("Failed to connect to MongoDB:", err)
