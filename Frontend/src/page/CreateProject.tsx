@@ -38,8 +38,6 @@ const CreateProjectForm: React.FC = () => {
 		queryFn: async () => await getAllUserMembers(),
 	});
 
-	console.log(users);
-
 	const onFinish = (values: CreateProject) => {
 		const tokenData = getTokenData();
 		if (!tokenData || tokenData.role !== 'Manager') {
