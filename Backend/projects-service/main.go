@@ -28,7 +28,8 @@ func main() {
 	// Inicijalizacija servisa
 	service := helpers.InitializeService(ctx, logger)
 	handler := handlers.NewProjectHandler(service)
-	// Postavljanje ruta za Project REST API
+
+	// Postavljanje ruta za Project REST API i GRPC
 	router := helpers.SetupRoutes(handler, userClient.Client)
 	helpers.RunServer(router, logger)
 }
