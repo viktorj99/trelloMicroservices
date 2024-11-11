@@ -12,6 +12,7 @@ import CreateProject from './page/CreateProject';
 import SingleProject from './page/SingleProject';
 import ProjectList from './page/Projects'; 
 import {isManager, isMember } from './utils/authHelpers';
+import Verification from './page/Verification';
 
 export const router = createBrowserRouter([
 	{
@@ -41,6 +42,10 @@ export const router = createBrowserRouter([
 			{
 				path: '/projects',
 				element: (isManager() || isMember()) ? <ProjectList /> : <Navigate to="/login" />,
+			},
+			{
+				path: '/verification',
+				element: <Verification />,
 			},
 		],
 	},

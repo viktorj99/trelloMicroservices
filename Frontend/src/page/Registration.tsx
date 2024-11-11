@@ -14,9 +14,13 @@ const RegistrationPage: React.FC = () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
 			notification.success({
 				message: 'Success',
-				description: 'Registration successful!',
+				description: 'Registration successful, Check your Email.',
 			});
 			form.resetFields();
+			setTimeout(() => {
+				window.location.href = '/verification';
+			}, 1000);
+			
 		},
 		onError: (error) => {
 			notification.error({

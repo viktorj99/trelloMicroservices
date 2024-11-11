@@ -18,42 +18,44 @@ func InitRepository(client *mongo.Client) {
 	userCollection = client.Database("usersDB").Collection("users")
 }
 
-func CreateUser(user model.User) error {
+func CreateUser(user model.User) (interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var existingUser model.User
 	err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&existingUser)
 	if err == nil {
-		return errors.New("Email is already in use")
+		return nil, errors.New("Email is already in use")
 	}
 	if err != mongo.ErrNoDocuments {
 		log.Println("Error checking existing email:", err)
-		return err
+		return nil, err
 	}
 
 	err = userCollection.FindOne(ctx, bson.M{"username": user.Username}).Decode(&existingUser)
 	if err == nil {
-		return errors.New("Username is already taken")
+		return nil, errors.New("Username is already taken")
 	}
 	if err != mongo.ErrNoDocuments {
 		log.Println("Error checking existing username:", err)
-		return err
+		return nil, err
 	}
 
-	_, err = userCollection.InsertOne(ctx, user)
+	var result *mongo.InsertOneResult
+	result, err = userCollection.InsertOne(ctx, user)
 	if err != nil {
 		if writeErr, ok := err.(mongo.WriteException); ok {
 			for _, e := range writeErr.WriteErrors {
 				if e.Code == 11000 {
-					return errors.New("Duplicate key error: " + e.Message)
+					return nil, errors.New("Duplicate key error: " + e.Message)
 				}
 			}
 		}
 		log.Println("Error inserting user:", err)
-		return err
+		return nil, err
 	}
-	return nil
+
+	return result.InsertedID, nil
 }
 
 func GetAllUsers() ([]model.User, error) {
@@ -137,18 +139,50 @@ func GetUserByID(userID string) (model.User, error) {
 	return user, nil
 }
 
-func GetUserByUsername(username string) (*model.User, error) {
+func GetUserByUsername(username string) (model.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	var user model.User
 	err := userCollection.FindOne(ctx, bson.M{"username": username}).Decode(&user)
 	if err == mongo.ErrNoDocuments {
-		return nil, errors.New("user not found")
+		return user, errors.New("user not found")
 	} else if err != nil {
 		log.Println("Error retrieving user by username:", err)
-		return nil, err
+		return user, err
 	}
 
-	return &user, nil
+	return user, nil
+}
+
+func UpdateUser(userID string, updatedUser model.User) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	objID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return errors.New("invalid user ID format")
+	}
+
+	update := bson.M{
+		"$set": bson.M{
+			"first_name": updatedUser.FirstName,
+			"last_name":  updatedUser.LastName,
+			"password":   updatedUser.Password,
+			"email":      updatedUser.Email,
+			"username":   updatedUser.Username,
+			"role":       updatedUser.Role,
+			"is_active":  updatedUser.IsActive,
+		},
+	}
+
+	log.Println("Updating user with ID:", objID)
+
+	_, err = userCollection.UpdateOne(ctx, bson.M{"_id": objID}, update)
+	if err != nil {
+		log.Println("Error updating user:", err)
+		return err
+	}
+
+	return nil
 }

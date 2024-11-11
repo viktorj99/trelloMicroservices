@@ -1,12 +1,24 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"strings"
 	"users-service/model"
 	"users-service/services"
+
+	"github.com/go-redis/redis/v8"
 )
+
+var ctx = context.Background()
+
+var redisClient = redis.NewClient(&redis.Options{
+	Addr:     "localhost:6379", // Redis address
+	Password: "",               // No password set
+	DB:       0,                // Use default DB
+})
 
 type LoginRequest struct {
 	Username string `json:"username"`
@@ -33,6 +45,29 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	err = services.RegisterUser(user)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	// Generate verification code
+	code, err := services.GenerateVerificationCode()
+	if err != nil {
+		http.Error(w, "Failed to generate verification code", http.StatusInternalServerError)
+		return
+	}
+
+	// Send the verification email
+	err = services.SendVerificationEmail(user.Email, code)
+	if err != nil {
+		log.Printf("Error while sending verification email: %v", err)
+		http.Error(w, "Failed to send verification email", http.StatusInternalServerError)
+		return
+	}
+
+	log.Println("The User Username is", user.Username)
+
+	err = services.SaveVerificationCode(code, user.Username)
+	if err != nil {
+		http.Error(w, "Failed to save verification code", http.StatusInternalServerError)
 		return
 	}
 

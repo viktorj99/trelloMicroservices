@@ -89,7 +89,7 @@ func RegisterUser(user model.User) error {
 
 	user.Password = hashedPassword
 
-	err = repositories.CreateUser(user)
+	_, err = repositories.CreateUser(user)
 	if err != nil {
 		return err
 	}
@@ -101,6 +101,10 @@ func Login(username, password string) (string, error) {
 	user, err := repositories.GetUserByUsername(username)
 	if err != nil {
 		return "", errors.New("user not found")
+	}
+
+	if user.IsActive == false {
+		return "", errors.New("account is not active")
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
