@@ -5,8 +5,13 @@ export const getTokenData = () => {
   const payload = token.split('.')[1];
   if (!payload) return null;
 
-  const decoded = JSON.parse(atob(payload));
-  return decoded;
+  try {
+    const decoded = JSON.parse(atob(payload));
+    return decoded;
+  } catch (e) {
+    console.error("Failed to decode token:", e);
+    return null;
+  }
 };
 
 export const getToken = () => {
@@ -24,7 +29,6 @@ export const isManager = () => {
 
 export const isMember = () => {
   const tokenData = getTokenData();
-  console.log(tokenData.role)
   return tokenData?.role === 'Member';
 };
 
