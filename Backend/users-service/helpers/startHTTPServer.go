@@ -13,6 +13,8 @@ func StartHTTPServer() {
 	http.HandleFunc("/users/members", enableCORS(handlers.GetAllUserMembers))
 	http.HandleFunc("/users/", enableCORS(handlers.GetUserByID))
 	http.HandleFunc("/verification", enableCORS(handlers.VerifyCode))
+	http.HandleFunc("/forgot-password", enableCORS(handlers.ForgotPassword))
+	http.HandleFunc("/change-password", enableCORS(handlers.ChangePassword))
 	log.Println("HTTP server is running on port 8080...")
 	log.Fatal(http.ListenAndServe(":8080", nil))
 }

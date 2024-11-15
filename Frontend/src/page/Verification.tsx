@@ -15,7 +15,6 @@ const VerificationPage: React.FC = () => {
           message: 'Verification Successful',
           description: 'Your account has been successfully activated.',
         });
-        // Redirect to login or another page
         window.location.href = '/login';
       }
     } catch (error) {

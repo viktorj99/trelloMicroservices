@@ -1,6 +1,7 @@
 import React from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { loginUser } from '../services/userService';
+import { Link } from 'react-router-dom';
 
 interface LoginFormValues {
 	username: string;
@@ -48,6 +49,9 @@ const LoginPage: React.FC = () => {
 						Log in
 					</Button>
 				</Form.Item>
+				<div style={{ textAlign: 'center' }}>
+					<Link to="/forgot-password">Forgot Password?</Link>
+				</div>
 			</Form>
 		</div>
 	);

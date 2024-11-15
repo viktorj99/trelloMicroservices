@@ -13,6 +13,8 @@ import SingleProject from './page/SingleProject';
 import ProjectList from './page/Projects'; 
 import {isManager, isMember } from './utils/authHelpers';
 import Verification from './page/Verification';
+import ForgotPasswordPage from './page/ForgotPasswords';
+import ChangePasswordPage from './page/ChangePassword';
 
 export const router = createBrowserRouter([
 	{
@@ -46,6 +48,14 @@ export const router = createBrowserRouter([
 			{
 				path: '/verification',
 				element: <Verification />,
+			},
+			{
+				path: '/forgot-password',
+				element: <ForgotPasswordPage />,
+			},
+			{
+				path: '/change-password',
+				element: <ChangePasswordPage />,
 			},
 		],
 	},

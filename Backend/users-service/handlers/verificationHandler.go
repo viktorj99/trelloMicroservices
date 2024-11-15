@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
 	"users-service/services"
 )
@@ -24,25 +23,18 @@ func VerifyCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println(req.Code, req)
-
-	// Get user ID by verification code
 	username, err := services.GetUserUsernameByVerificationCode(req.Code)
 	if err != nil {
 		http.Error(w, "Invalid verification code", http.StatusBadRequest)
 		return
 	}
 
-	log.Println(username)
-
-	// Update the user to set isActive to true
 	err = services.ActivateUser(username)
 	if err != nil {
 		http.Error(w, "Failed to activate user", http.StatusInternalServerError)
 		return
 	}
 
-	// Optionally delete the verification code after activation
 	services.DeleteVerificationCode(req.Code)
 
 	w.Header().Set("Content-Type", "application/json")

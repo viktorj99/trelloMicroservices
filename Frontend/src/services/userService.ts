@@ -60,11 +60,9 @@ export const getAllUserMembers = async () => {
 
 export const verifyCode = async (code: string) => {
 	try {
-	  // Make the request to the Go backend for verification
-	  const url = `${import.meta.env.VITE_USER_BACKEND_URL}/verification`; // Assuming the backend has a /verify-code endpoint
+	  const url = `${import.meta.env.VITE_USER_BACKEND_URL}/verification`; 
 	  const response = await axios.post(url, { code });
   
-	  // Return the response from the backend
 	  return response;
 	} catch (error) {
 	  if (axios.isAxiosError(error)) {
@@ -75,4 +73,37 @@ export const verifyCode = async (code: string) => {
 		throw new Error('An unexpected error occurred. Please try again.');
 	  }
 	}
-  };
+};
+
+export const sendResetPasswordEmail = async (email: string) => {
+	try {
+	  const url = `${import.meta.env.VITE_USER_BACKEND_URL}/forgot-password`;
+	  const response = await axios.post(url, { email });
+  
+	  return response;
+	} catch (error) {
+	  if (axios.isAxiosError(error)) {
+		console.error('Error response:', error.response?.data);
+		throw new Error(error.response?.data || 'Failed to send reset password email. Please try again.');
+	  } else {
+		console.error('Unexpected error:', error);
+		throw new Error('An unexpected error occurred. Please try again.');
+	  }
+	}
+};
+
+export const changePassword = async (code: string, newPassword: string) => {
+	try {
+		const url = `${import.meta.env.VITE_USER_BACKEND_URL}/change-password`;
+		const response = await axios.post(url, { code, newPassword });
+		return response;
+	} catch (error) {
+		if (axios.isAxiosError(error)) {
+			console.error('Error response:', error.response?.data);
+			throw new Error(error.response?.data || 'Failed to reset password.');
+		} else {
+			console.error('Unexpected error:', error);
+			throw new Error('An unexpected error occurred.');
+		}
+	}
+};

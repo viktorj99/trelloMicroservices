@@ -2,9 +2,11 @@ package services
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 	"users-service/repositories"
+	"users-service/utils"
 
 	"github.com/go-redis/redis/v8"
 )
@@ -12,13 +14,12 @@ import (
 var ctx = context.Background()
 
 var redisClient = redis.NewClient(&redis.Options{
-	Addr:     "localhost:6379", // Redis address
-	Password: "",               // No password set
-	DB:       0,                // Use default DB
+	Addr:     "localhost:6379",
+	Password: "",
+	DB:       0,
 })
 
 func SaveVerificationCode(code string, username string) error {
-	// Save the verification code in Redis with an expiration time of 15 minutes
 	err := redisClient.Set(ctx, code, username, time.Minute*15).Err()
 	if err != nil {
 		log.Printf("Error saving verification code to Redis: %v", err)
@@ -28,7 +29,6 @@ func SaveVerificationCode(code string, username string) error {
 }
 
 func GetUserUsernameByVerificationCode(code string) (string, error) {
-	// Retrieve the user ID associated with the verification code from Redis
 	username, err := redisClient.Get(ctx, code).Result()
 	if err != nil {
 		log.Printf("Error retrieving Username from Redis: %v", err)
@@ -38,7 +38,6 @@ func GetUserUsernameByVerificationCode(code string) (string, error) {
 }
 
 func DeleteVerificationCode(code string) error {
-	// Delete the verification code from Redis once it is used
 	err := redisClient.Del(ctx, code).Err()
 	if err != nil {
 		log.Printf("Error deleting verification code from Redis: %v", err)
@@ -48,12 +47,27 @@ func DeleteVerificationCode(code string) error {
 }
 
 func ActivateUser(username string) error {
-	// Update the user's isActive field to true
 	user, err := repositories.GetUserByUsername(username)
 	if err != nil {
 		return err
 	}
 
 	user.IsActive = true
+	return repositories.UpdateUser(user.ID, user)
+}
+
+func ChangePassword(username string, password string) error {
+	user, err := repositories.GetUserByUsername(username)
+	if err != nil {
+		return err
+	}
+
+	hashedPassword, err := utils.HashPassword(password)
+	if err != nil {
+		return errors.New("failed to hash password")
+	}
+
+	user.Password = hashedPassword
+
 	return repositories.UpdateUser(user.ID, user)
 }
