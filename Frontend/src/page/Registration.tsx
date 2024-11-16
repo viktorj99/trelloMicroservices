@@ -20,7 +20,6 @@ const RegistrationPage: React.FC = () => {
 			setTimeout(() => {
 				window.location.href = '/verification';
 			}, 1000);
-			
 		},
 		onError: (error) => {
 			notification.error({

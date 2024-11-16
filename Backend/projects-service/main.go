@@ -12,7 +12,7 @@ import (
 
 
 func main() {
-	helpers.LoadingEnv()
+	// helpers.LoadingEnv()
 
 	ctx := context.Background()
 	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)

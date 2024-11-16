@@ -1,6 +1,6 @@
 module projects-service
 
-go 1.23.2
+go 1.23
 
 require go.mongodb.org/mongo-driver v1.17.1
 
@@ -28,4 +28,5 @@ require (
 	pb/userpb v0.0.0-00010101000000-000000000000
 )
 
-replace pb/userpb => ../pb/userpb
+replace pb/userpb => ./pb/userpb
+

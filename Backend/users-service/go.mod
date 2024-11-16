@@ -1,6 +1,6 @@
 module users-service
 
-go 1.23.2
+go 1.23
 
 require go.mongodb.org/mongo-driver v1.17.1
 
@@ -52,4 +52,5 @@ require (
 
 replace users-service => ../users-service
 
-replace pb/userpb => ../pb/userpb
+replace pb/userpb => ./pb/userpb
+
