@@ -200,3 +200,18 @@ func UpdateUser(userID string, updatedUser model.User) error {
 
 	return nil
 }
+
+func DeleteUserByUsername(username string) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	filter := bson.M{"username": username}
+	_, err := userCollection.DeleteOne(ctx, filter)
+	if err != nil {
+		log.Printf("Error deleting user by username: %v", err)
+		return err
+	}
+
+	log.Printf("User with username %s deleted from MongoDB", username)
+	return nil
+}

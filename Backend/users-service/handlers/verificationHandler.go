@@ -29,7 +29,7 @@ func VerifyCode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = services.ActivateUser(username)
+	err = services.ActivateUser(username, req.Code)
 	if err != nil {
 		http.Error(w, "Failed to activate user", http.StatusInternalServerError)
 		return
