@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package userservice;
 
-option go_package = "/userpb";
+option go_package = "pb/userpb";
 
 service UserService {
     rpc GetAllUsers (GetAllUsersRequest) returns (GetAllUsersResponse);
