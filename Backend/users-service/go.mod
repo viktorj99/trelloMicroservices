@@ -1,6 +1,6 @@
 module users-service
 
-go 1.23.2
+go 1.23.3
 
 require go.mongodb.org/mongo-driver v1.17.1
 
@@ -46,7 +46,7 @@ require (
 	golang.org/x/sync v0.8.0 // indirect
 	golang.org/x/text v0.18.0 // indirect
 	google.golang.org/grpc v1.68.0
-	google.golang.org/protobuf v1.35.1 // indirect
+	google.golang.org/protobuf v1.35.2 // indirect
 	pb/userpb v0.0.0-00010101000000-000000000000
 )
 

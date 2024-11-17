@@ -10,19 +10,18 @@ import (
 )
 
 func SetupRoutes(handler *handlers.ProjectHandler, userClient userpb.UserServiceClient) *mux.Router {
-	r := mux.NewRouter()
+	router := mux.NewRouter()
+	router.Use(EnableCORS) // Primeni CORS middleware na sve rute
 
-	r.Handle("/projects", auth.EnableBoth(http.HandlerFunc(handler.GetAllProjects))).Methods("GET")
-	r.Handle("/project/{id}", auth.EnableBoth(http.HandlerFunc(handler.GetProjectById))).Methods("GET")
-	r.Handle("/project/create", auth.EnableManager(http.HandlerFunc(handler.CreateProject))).Methods("POST")
-	r.Handle("/project/{id}", auth.EnableManager(http.HandlerFunc(handler.UpdateProject))).Methods("PUT")
-	r.HandleFunc("/project/{id}", handler.UpdateProject).Methods("PUT")
-	r.HandleFunc("/project/{id}", handler.DeleteProject).Methods("DELETE")
+	router.Handle("/projects", auth.EnableBoth(http.HandlerFunc(handler.GetAllProjects))).Methods("GET", "OPTIONS")
+	router.Handle("/projects/{id}", auth.EnableBoth(http.HandlerFunc(handler.GetProjectById))).Methods("GET", "OPTIONS")
+	router.Handle("/projects/create", auth.EnableManager(http.HandlerFunc(handler.CreateProject))).Methods("POST", "OPTIONS")
+	router.Handle("/projects/{id}/update", auth.EnableManager(http.HandlerFunc(handler.UpdateProject))).Methods("PUT", "OPTIONS")
+	router.Handle("/projects/{id}/delete", auth.EnableManager(http.HandlerFunc(handler.DeleteProject))).Methods("DELETE", "OPTIONS")
 
-	// Dodavanje rute za gRPC poziv user-service
-	r.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
+	router.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
 		handlers.GetUsersHandler(w, r, userClient)
 	}).Methods("GET")
 
-	return r
+	return router
 }

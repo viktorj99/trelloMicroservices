@@ -10,7 +10,6 @@ import (
 	"projects-service/helpers"
 )
 
-
 func main() {
 	helpers.LoadingEnv()
 

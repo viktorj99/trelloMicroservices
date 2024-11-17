@@ -59,6 +59,7 @@ func handleCORS(w http.ResponseWriter, r *http.Request) {
 }
 
 func proxyToService(w http.ResponseWriter, r *http.Request, serviceURL string) {
+
 	// Remove the "/api" prefix from the URL path
 	newPath := strings.TrimPrefix(r.URL.Path, "/api")
 	newPath = strings.TrimSuffix(newPath, "/") // Remove the trailing slash
