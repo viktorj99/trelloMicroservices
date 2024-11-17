@@ -32,6 +32,31 @@ services:
             - app-network
         volumes:
             - ./Backend/tasks-service/.env:/app/.env
+    
+    notifications-service:
+        build:
+            context: ./Backend
+            dockerfile: notifications-service/Dockerfile
+        ports:
+            - "8084:8080"
+        env_file:
+            - ./Backend/notifications-service/.env
+        networks:
+            - app-network
+
+    cassandra:
+        image: cassandra
+        restart: always
+        ports:
+         - "9042:9042"
+        # Docker healtcheck - checks if database is "alive"
+        healthcheck:
+            test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
+            interval: 15s
+            timeout: 5s
+            retries: 15
+        volumes:
+        - cass_store:/var/lib/cassandra/data
 
     frontend:
         build:
@@ -51,3 +76,7 @@ services:
 networks:
     app-network:
         driver: bridge
+
+
+volumes:
+  cass_store:

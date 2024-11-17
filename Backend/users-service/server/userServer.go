@@ -24,7 +24,7 @@ func (s *UserServer) GetAllUsers(ctx context.Context, req *userpb.GetAllUsersReq
 	var users []*userpb.User
 	for _, user := range usersFromDB {
 		users = append(users, &userpb.User{
-			Id:       user.ID,
+			Id:        user.ID,
 			FirstName: user.FirstName,
 			LastName:  user.LastName,
 			Email:     user.Email,
