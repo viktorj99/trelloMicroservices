@@ -10,6 +10,7 @@ import (
 
 	"github.com/gocql/gocql"
 	"github.com/gorilla/mux"
+	"github.com/nats-io/nats.go"
 )
 
 func main() {
@@ -27,16 +28,21 @@ func main() {
 	// Initialize repository, service, and handler
 	notificationRepo := repositories.NewNotificationRepository(session)
 	notificationService := service.NewNotificationService(notificationRepo)
-	notificationHandler := handlers.NewNotificationHandler(notificationService)
 
-	// Set up the router
+	natsConn, err := nats.Connect(nats.DefaultURL)
+	if err != nil {
+		log.Fatal("Failed to connect to NATS:", err)
+	}
+	defer natsConn.Close()
+
+	// Initialize the NotificationHandler with NATS connection
+	notificationHandler := handlers.NewNotificationHandler(notificationService, natsConn)
+
 	r := mux.NewRouter()
 
-	// Define routes and assign handlers
 	r.HandleFunc("/notifications", notificationHandler.CreateNotificationHandler).Methods("POST")
 	r.HandleFunc("/notifications", notificationHandler.GetNotificationsHandler).Methods("GET")
 
-	// Start the server
 	log.Println("Server is running on port 8080")
 	if err := http.ListenAndServe(":8080", r); err != nil {
 		log.Fatal("Failed to start server:", err)
