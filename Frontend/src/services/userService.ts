@@ -75,7 +75,7 @@ export const verifyCode = async (code: string) => {
 
 export const sendResetPasswordEmail = async (email: string) => {
 	try {
-	  const url = `${import.meta.env.VITE_USER_BACKEND_URL}/forgot-password`;
+	  const url = `${BASE_URL}/forgot-password`;
 	  const response = await axios.post(url, { email });
   
 	  return response;
@@ -92,7 +92,7 @@ export const sendResetPasswordEmail = async (email: string) => {
 
 export const changeForgotPassword = async (code: string, newPassword: string) => {
 	try {
-		const url = `${import.meta.env.VITE_USER_BACKEND_URL}/forgot-password/change`;
+		const url = `${BASE_URL}/forgot-password/change`;
 		const response = await axios.post(url, { code, newPassword });
 		return response;
 	} catch (error) {
@@ -108,7 +108,7 @@ export const changeForgotPassword = async (code: string, newPassword: string) =>
 
 export const requestMagicLink = async (email: string) => {
     try {
-        const url = `${import.meta.env.VITE_USER_BACKEND_URL}/magic-link/request`;
+        const url = `${BASE_URL}/magic-link/request`;
         const response = await axios.post(url, { email });
         return response.data;
     } catch (error) {
@@ -123,7 +123,7 @@ export const requestMagicLink = async (email: string) => {
 
 export const magicLogin = async (token: string) => {
     try {
-        const url = `${import.meta.env.VITE_USER_BACKEND_URL}/magic-link/login`;
+        const url = `${BASE_URL}/magic-link/login`;
         const response = await axios.post(url, { token });
         return response.data; 
     } catch (error) {
@@ -138,7 +138,7 @@ export const magicLogin = async (token: string) => {
 
 export const changePassword = async (newPassword: string) => {
 	try {
-	  const url = `${import.meta.env.VITE_USER_BACKEND_URL}/change-password`;
+	  const url = `${BASE_URL}/change-password`;
 	  const token = getToken();
 	  const response = await axios.post(
 		url,
