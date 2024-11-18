@@ -45,7 +45,9 @@ var consulClient *api.Client
 
 func init() {
 	var err error
-	consulClient, err = api.NewClient(api.DefaultConfig())
+	config := api.DefaultConfig()
+	config.Address = "consul:8500" // Use Docker service name and port
+	consulClient, err = api.NewClient(config)
 	if err != nil {
 		fmt.Printf("Failed to create Consul client: %v\n", err)
 	}

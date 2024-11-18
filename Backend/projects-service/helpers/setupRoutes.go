@@ -11,10 +11,10 @@ import (
 
 func SetupRoutes(handler *handlers.ProjectHandler, userClient userpb.UserServiceClient) *mux.Router {
 	router := mux.NewRouter()
-	router.Use(EnableCORS) // Primeni CORS middleware na sve rute
+	router.Use() // Primeni CORS middleware na sve rute
 
-	router.Handle("/projects", auth.EnableBoth(http.HandlerFunc(handler.GetAllProjects))).Methods("GET", "OPTIONS")
-	router.Handle("/projects/{id}", auth.EnableBoth(http.HandlerFunc(handler.GetProjectById))).Methods("GET", "OPTIONS")
+	router.Handle("/projects", auth.EnableBoth(http.HandlerFunc(handler.GetAllProjects))).Methods("GET")
+	router.Handle("/projects/{id}", auth.EnableBoth(http.HandlerFunc(handler.GetProjectById))).Methods("GET")
 	router.Handle("/projects/create", auth.EnableManager(http.HandlerFunc(handler.CreateProject))).Methods("POST", "OPTIONS")
 	router.Handle("/projects/{id}/update", auth.EnableManager(http.HandlerFunc(handler.UpdateProject))).Methods("PUT", "OPTIONS")
 	router.Handle("/projects/{id}/delete", auth.EnableManager(http.HandlerFunc(handler.DeleteProject))).Methods("DELETE", "OPTIONS")

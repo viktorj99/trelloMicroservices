@@ -10,7 +10,10 @@ import (
 )
 
 func LoadCommonPasswordsToConsul(filepath string) error {
-	client, err := api.NewClient(api.DefaultConfig())
+	config := api.DefaultConfig()
+	config.Address = "consul:8500" // Use Consul address from Docker Compose
+
+	client, err := api.NewClient(config)
 	if err != nil {
 		return fmt.Errorf("failed to connect to Consul: %w", err)
 	}

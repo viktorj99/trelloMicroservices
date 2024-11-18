@@ -9,6 +9,9 @@ services:
         environment:
             - MONGO_DB_URI=mongodb://host.docker.internal:27017
             - PORT=8080
+            - REDIS_HOST=redis
+            - REDIS_PORT=6379
+            #- CONSUL_HTTP_ADDR=consul:8500  # Add Consul address to env
         networks:
             - app-network
 
@@ -56,6 +59,21 @@ services:
             - projects-service
             - tasks-service
 
+    redis:
+        image: "redis:latest"
+        ports:
+            - "6379:6379"
+        networks:
+            - app-network
+
+    # consul:
+    #     image: "consul:1.14.2"
+    #     ports:
+    #         - "8500:8500"
+    #     networks:
+    #         - app-network
+    #     command: "agent -dev -client=0.0.0.0"  # Run in dev mode to allow easy access
+    
     frontend:
         build:
             context: ./Frontend

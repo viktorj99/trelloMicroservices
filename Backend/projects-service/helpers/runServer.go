@@ -9,7 +9,7 @@ import (
 )
 
 func RunServer(router *mux.Router, logger *log.Logger) {
-	http.Handle("/", EnableCORS(router))
+	http.Handle("/", router)
 
 	port := os.Getenv("PORT")
 	if port == "" {
