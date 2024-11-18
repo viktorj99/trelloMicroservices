@@ -29,7 +29,7 @@ func main() {
 	notificationRepo := repositories.NewNotificationRepository(session)
 	notificationService := service.NewNotificationService(notificationRepo)
 
-	natsConn, err := nats.Connect(nats.DefaultURL)
+	natsConn, err := nats.Connect("nats://localhost:4222")
 	if err != nil {
 		log.Fatal("Failed to connect to NATS:", err)
 	}

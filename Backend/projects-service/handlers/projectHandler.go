@@ -3,21 +3,28 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
+	"log"
 	"net/http"
 	"projects-service/model"
 	"projects-service/services"
 
 	"github.com/gorilla/mux"
+	"github.com/nats-io/nats.go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type ProjectHandler struct {
-	service *services.ProjectService
+	service  *services.ProjectService
+	natsConn *nats.Conn
 }
 
-func NewProjectHandler(service *services.ProjectService) *ProjectHandler {
-	return &ProjectHandler{service: service}
+func NewProjectHandler(service *services.ProjectService, natsConn *nats.Conn) *ProjectHandler {
+	return &ProjectHandler{
+		service:  service,
+		natsConn: natsConn,
+	}
 }
 
 func (ph *ProjectHandler) GetAllProjects(w http.ResponseWriter, r *http.Request) {
@@ -110,8 +117,38 @@ func (ph *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	// NATS publishing logic (assuming new member was added in the "members" field)
+	if members, ok := updateData["members"].([]interface{}); ok {
+		// Assuming the new member is the last one in the list
+		if len(members) > 0 {
+			newMember := members[len(members)-1].(map[string]interface{})
+			userID := newMember["id"].(string) // Adjust depending on your data structure
+
+			// Publish the userID to NATS
+			err = ph.publishUserIDToNATS(userID)
+			if err != nil {
+				log.Println("Failed to publish user ID to NATS:", err)
+			} else {
+				log.Println("Successfully published user ID to NATS:", userID)
+			}
+		}
+	}
+
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(result)
+}
+
+// NATS Publishing
+func (ph *ProjectHandler) publishUserIDToNATS(userID string) error {
+
+	natsConn := ph.natsConn
+	if natsConn == nil {
+		return errors.New("NATS connection is not initialized")
+	}
+
+	// Publishing the userID
+	err := natsConn.Publish("user.added", []byte(userID))
+	return err
 }
 
 func (ph *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
