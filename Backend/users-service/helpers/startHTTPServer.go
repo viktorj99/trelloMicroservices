@@ -28,6 +28,6 @@ func StartHTTPServer() {
 	})
 
 	log.Println("HTTP server is running on port 8079...")
-	log.Fatal(http.ListenAndServe(":8079", nil))
+	log.Fatal(http.ListenAndServe(":8080", nil))
 
 }

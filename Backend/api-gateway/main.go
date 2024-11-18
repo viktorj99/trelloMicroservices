@@ -6,17 +6,9 @@ import (
 	"net/http"
 	"os"
 	"strings"
-
-	"github.com/joho/godotenv"
 )
 
 func main() {
-	// Load environment variables
-	err := loadEnv()
-	if err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
-
 	// Retrieve service addresses and API Gateway port from environment variables
 	userService := os.Getenv("USER_SERVICE")
 	projectService := os.Getenv("PROJECT_SERVICE")
@@ -52,10 +44,10 @@ func main() {
 }
 
 func handleCORS(w http.ResponseWriter, r *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173") // Replace with specific frontend origin or use "*" for all origins
+	w.Header().Set("Access-Control-Allow-Origin", "http://localhost:5173") 
 	w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
 	w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-	w.Header().Set("Access-Control-Allow-Credentials", "true") // Needed if credentials (cookies, auth headers) are used
+	w.Header().Set("Access-Control-Allow-Credentials", "true") 
 }
 
 func proxyToService(w http.ResponseWriter, r *http.Request, serviceURL string) {
@@ -100,14 +92,4 @@ func proxyToService(w http.ResponseWriter, r *http.Request, serviceURL string) {
 	if err != nil {
 		log.Printf("Error copying response body: %v", err)
 	}
-}
-
-func loadEnv() error {
-	_, err := os.Stat(".env")
-	if os.IsNotExist(err) {
-		log.Println(".env file not found")
-		return nil
-	}
-	log.Println("Loading .env file...")
-	return godotenv.Load()
 }
