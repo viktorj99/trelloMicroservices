@@ -23,18 +23,17 @@ func main() {
 		port = "8080"
 	}
 
-	// Set up reverse proxy for each service
-	http.HandleFunc("/api/users/", func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/api/users/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyToService(w, r, userService)
-	})
-	http.HandleFunc("/api/projects/", func(w http.ResponseWriter, r *http.Request) {
+	})))
+
+	http.Handle("/api/projects/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyToService(w, r, projectService)
-		w.WriteHeader(http.StatusNoContent)
-		return
-	})
-	http.HandleFunc("/api/tasks/", func(w http.ResponseWriter, r *http.Request) {
+	})))
+
+	http.Handle("/api/tasks/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyToService(w, r, taskService)
-	})
+	})))
 
 	// Start the API Gateway HTTP server
 	log.Printf("API Gateway is running on port %s...", port)
@@ -60,7 +59,6 @@ func enableCORS(handler http.Handler) http.Handler {
 }
 
 func proxyToService(w http.ResponseWriter, r *http.Request, serviceURL string) {
-
 	// Remove the "/api" prefix from the URL path
 	newPath := strings.TrimPrefix(r.URL.Path, "/api")
 	newPath = strings.TrimSuffix(newPath, "/") // Remove the trailing slash
@@ -68,6 +66,8 @@ func proxyToService(w http.ResponseWriter, r *http.Request, serviceURL string) {
 
 	// Log the constructed URL for debugging
 	log.Printf("Forwarding request to: %s", fullURL)
+	log.Printf("Method: %s, Forwarding to: %s", r.Method, fullURL)
+
 
 	// Create a new HTTP request for the target service
 	req, err := http.NewRequest(r.Method, fullURL, r.Body)
