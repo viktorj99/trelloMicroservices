@@ -5,6 +5,7 @@ import (
 	"users-service/database"
 	"users-service/helpers"
 	"users-service/repositories"
+	"users-service/services"
 )
 
 func main() {
@@ -19,6 +20,8 @@ func main() {
 	}
 
 	repositories.InitRepository(client)
+
+	go services.StartKeyExpirationListener()
 
 	// Pokretanje HTTP i gRPC servera paralelno
 	go helpers.StartHTTPServer() // HTTP server na portu 8080

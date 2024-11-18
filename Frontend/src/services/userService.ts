@@ -68,7 +68,94 @@ export const verifyCode = async (code: string) => {
             throw new Error(error.response?.data || 'Verification failed. Please try again.');
         } else {
             console.error('Unexpected error:', error);
+		        throw new Error('An unexpected error occurred. Please try again.');
+	  }
+	}
+};
+
+export const sendResetPasswordEmail = async (email: string) => {
+	try {
+	  const url = `${import.meta.env.VITE_USER_BACKEND_URL}/forgot-password`;
+	  const response = await axios.post(url, { email });
+  
+	  return response;
+	} catch (error) {
+	  if (axios.isAxiosError(error)) {
+		console.error('Error response:', error.response?.data);
+		throw new Error(error.response?.data || 'Failed to send reset password email. Please try again.');
+	  } else {
+		console.error('Unexpected error:', error);
+		throw new Error('An unexpected error occurred. Please try again.');
+	  }
+	}
+};
+
+export const changeForgotPassword = async (code: string, newPassword: string) => {
+	try {
+		const url = `${import.meta.env.VITE_USER_BACKEND_URL}/forgot-password/change`;
+		const response = await axios.post(url, { code, newPassword });
+		return response;
+	} catch (error) {
+		if (axios.isAxiosError(error)) {
+			console.error('Error response:', error.response?.data);
+			throw new Error(error.response?.data || 'Failed to reset password.');
+		} else {
+			console.error('Unexpected error:', error);
+			throw new Error('An unexpected error occurred.');
+		}
+	}
+};
+
+export const requestMagicLink = async (email: string) => {
+    try {
+        const url = `${import.meta.env.VITE_USER_BACKEND_URL}/magic-link/request`;
+        const response = await axios.post(url, { email });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            console.error('Error response:', error.response?.data);
+            throw new Error(error.response?.data || 'Failed to send magic link. Please try again.');
+        } else {
             throw new Error('An unexpected error occurred. Please try again.');
         }
     }
+};
+
+export const magicLogin = async (token: string) => {
+    try {
+        const url = `${import.meta.env.VITE_USER_BACKEND_URL}/magic-link/login`;
+        const response = await axios.post(url, { token });
+        return response.data; 
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            console.error('Error response:', error.response?.data);
+            throw new Error(error.response?.data || 'Invalid or expired magic link token.');
+        } else {
+            throw new Error('An unexpected error occurred.');
+        }
+    }
+};
+
+export const changePassword = async (newPassword: string) => {
+	try {
+	  const url = `${import.meta.env.VITE_USER_BACKEND_URL}/change-password`;
+	  const token = getToken();
+	  const response = await axios.post(
+		url,
+		{ newPassword },
+		{
+		  headers: {
+			Authorization: `Bearer ${token}`,
+		  },
+		}
+	  );
+	  return response.data;
+	} catch (error) {
+	  if (axios.isAxiosError(error)) {
+		throw new Error(error.response?.data || 'Failed to change password.');
+	  } else {
+		console.error('Unexpected error:', error);
+		throw new Error('An unexpected error occurred.');
+	  }
+	}
 };
