@@ -11,7 +11,6 @@ export const postData = async (user: RegistrationUser) => {
 	} catch (error) {
 		console.log(error);
 		if (axios.isAxiosError(error)) {
-			// Log the error and throw a new error with a detailed message
 			console.error('Error response:', error.response?.data);
 			throw new Error(error.response?.data || 'Registration failed. Please try again.');
 		} else {
@@ -92,9 +91,9 @@ export const sendResetPasswordEmail = async (email: string) => {
 	}
 };
 
-export const changePassword = async (code: string, newPassword: string) => {
+export const changeForgotPassword = async (code: string, newPassword: string) => {
 	try {
-		const url = `${import.meta.env.VITE_USER_BACKEND_URL}/change-password`;
+		const url = `${import.meta.env.VITE_USER_BACKEND_URL}/forgot-password/change`;
 		const response = await axios.post(url, { code, newPassword });
 		return response;
 	} catch (error) {
@@ -123,12 +122,11 @@ export const requestMagicLink = async (email: string) => {
     }
 };
 
-// Magic login using token
 export const magicLogin = async (token: string) => {
     try {
         const url = `${import.meta.env.VITE_USER_BACKEND_URL}/magic-link/login`;
         const response = await axios.post(url, { token });
-        return response.data; // Expect an `authToken` or session token
+        return response.data; 
     } catch (error) {
         if (axios.isAxiosError(error)) {
             console.error('Error response:', error.response?.data);
@@ -137,4 +135,28 @@ export const magicLogin = async (token: string) => {
             throw new Error('An unexpected error occurred.');
         }
     }
+};
+
+export const changePassword = async (newPassword: string) => {
+	try {
+	  const url = `${import.meta.env.VITE_USER_BACKEND_URL}/change-password`;
+	  const token = getToken();
+	  const response = await axios.post(
+		url,
+		{ newPassword },
+		{
+		  headers: {
+			Authorization: `Bearer ${token}`,
+		  },
+		}
+	  );
+	  return response.data;
+	} catch (error) {
+	  if (axios.isAxiosError(error)) {
+		throw new Error(error.response?.data || 'Failed to change password.');
+	  } else {
+		console.error('Unexpected error:', error);
+		throw new Error('An unexpected error occurred.');
+	  }
+	}
 };

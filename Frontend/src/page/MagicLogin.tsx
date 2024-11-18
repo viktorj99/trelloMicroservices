@@ -8,7 +8,6 @@ const MagicLogin: React.FC = () => {
 
     useEffect(() => {
         const token = searchParams.get('token');
-        console.log('Token from URL:', token);  // Log token to check if it's correctly retrieved
         if (token) {
             (async () => {
                 try {

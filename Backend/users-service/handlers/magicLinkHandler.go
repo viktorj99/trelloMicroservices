@@ -52,28 +52,24 @@ func RequestMagicLinkHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func MagicLoginHandler(w http.ResponseWriter, r *http.Request) {
-	// Only allow POST requests
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
-	// Call the ParseToken function to validate and extract claims
-	claims, err := auth.ParseToken(r)
+	claims, err := auth.ParseTokenBody(r)
 	if err != nil {
-		fmt.Println("Error parsing token:", err) // Log error if any
+		fmt.Println("Error parsing token:", err)
 		http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
 		return
 	}
 
-	// Generate session token after successful validation
 	sessionToken, err := services.GenerateJWTToken(claims.Username, claims.Role)
 	if err != nil {
 		http.Error(w, "Failed to generate session token", http.StatusInternalServerError)
 		return
 	}
 
-	// Respond with the session token
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"authToken": sessionToken})
 }

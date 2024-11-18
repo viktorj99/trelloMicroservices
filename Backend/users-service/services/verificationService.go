@@ -20,14 +20,12 @@ var redisClient = redis.NewClient(&redis.Options{
 })
 
 func SaveVerificationCode(code string, username string) error {
-	// Save the code as the key with the username as the value
 	err := redisClient.Set(ctx, code, username, time.Minute*15).Err()
 	if err != nil {
 		log.Printf("Error saving verification code to Redis: %v", err)
 		return err
 	}
 
-	// Save a reverse mapping from code to username
 	err = redisClient.Set(ctx, "reverse:"+code, username, time.Minute*15).Err()
 	if err != nil {
 		log.Printf("Error saving reverse mapping to Redis: %v", err)
@@ -56,13 +54,11 @@ func DeleteVerificationCode(code string) error {
 }
 
 func ActivateUser(username string, expiredKey string) error {
-	// Fetch the user from MongoDB
 	user, err := repositories.GetUserByUsername(username)
 	if err != nil {
 		return err
 	}
 
-	// Activate the user
 	user.IsActive = true
 	if err := repositories.UpdateUser(user.ID, user); err != nil {
 		return err
@@ -76,10 +72,14 @@ func ActivateUser(username string, expiredKey string) error {
 	return nil
 }
 
-func ChangePassword(username string, password string, expiredKey string) error {
+func ChangeForgotPassword(username string, password string, expiredKey string) error {
 	user, err := repositories.GetUserByUsername(username)
 	if err != nil {
 		return err
+	}
+
+	if utils.CheckPasswordHash(password, user.Password) {
+		return errors.New("new password cannot be the same as the old password")
 	}
 
 	hashedPassword, err := utils.HashPassword(password)
@@ -98,23 +98,19 @@ func ChangePassword(username string, password string, expiredKey string) error {
 }
 
 func StartKeyExpirationListener() {
-	// Subscribe to key expiration events
 	pubsub := redisClient.Subscribe(ctx, "__keyevent@0__:expired")
 	defer pubsub.Close()
 
 	log.Println("Listening for Redis key expiration events...")
 	for msg := range pubsub.Channel() {
-		// Parse the expired key
 		expiredKey := msg.Payload
 		log.Printf("Key expired: %s", expiredKey)
 
-		// Handle the expired key
 		handleExpiredKey(expiredKey)
 	}
 }
 
 func handleExpiredKey(expiredKey string) {
-	// Use the reverse mapping to find the associated username
 	username, err := redisClient.Get(ctx, "reverse:"+expiredKey).Result()
 	if err == redis.Nil {
 		log.Printf("Key %s expired but no reverse mapping found", expiredKey)
@@ -124,13 +120,11 @@ func handleExpiredKey(expiredKey string) {
 		return
 	}
 
-	// Delete the reverse mapping
 	_, delReverseErr := redisClient.Del(ctx, "reverse:"+expiredKey).Result()
 	if delReverseErr != nil {
 		log.Printf("Error deleting reverse mapping for key %s: %v", expiredKey, delReverseErr)
 	}
 
-	// Delete the user from MongoDB
 	err = repositories.DeleteUserByUsername(username)
 	if err != nil {
 		log.Printf("Error deleting user %s from MongoDB: %v", username, err)
@@ -138,4 +132,24 @@ func handleExpiredKey(expiredKey string) {
 	}
 
 	log.Printf("Successfully deleted user %s and cleaned up reverse mapping", username)
+}
+
+func ChangePassword(username string, password string) error {
+	user, err := repositories.GetUserByUsername(username)
+	if err != nil {
+		return err
+	}
+
+	if utils.CheckPasswordHash(password, user.Password) {
+		return errors.New("New password cannot be the same as the old password.")
+	}
+
+	hashedPassword, err := utils.HashPassword(password)
+	if err != nil {
+		return errors.New("failed to hash password")
+	}
+
+	user.Password = hashedPassword
+
+	return repositories.UpdateUser(user.ID, user)
 }
