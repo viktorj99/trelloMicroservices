@@ -72,7 +72,7 @@ func ChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err = services.ChangePassword(username, request.NewPassword)
+	err = services.ChangePassword(username, request.NewPassword, request.Code)
 	if err != nil {
 		http.Error(w, "Failed to activate user", http.StatusInternalServerError)
 		return

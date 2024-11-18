@@ -113,7 +113,7 @@ func Login(username, password string) (string, error) {
 		return "", errors.New("invalid password")
 	}
 
-	token, err := generateJWTToken(user.Username, user.Role)
+	token, err := GenerateJWTToken(user.Username, user.Role)
 	if err != nil {
 		return "", err
 	}
@@ -121,7 +121,7 @@ func Login(username, password string) (string, error) {
 	return token, nil
 }
 
-func generateJWTToken(username, role string) (string, error) {
+func GenerateJWTToken(username, role string) (string, error) {
 	if role != model.RoleManager && role != model.RoleMember {
 		return "", errors.New("invalid role")
 	}

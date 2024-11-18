@@ -52,6 +52,9 @@ const LoginPage: React.FC = () => {
 				<div style={{ textAlign: 'center' }}>
 					<Link to="/forgot-password">Forgot Password?</Link>
 				</div>
+				<div style={{ textAlign: 'center' }}>
+					<Link to="/magic-link">Magic Link</Link>
+				</div>
 			</Form>
 		</div>
 	);

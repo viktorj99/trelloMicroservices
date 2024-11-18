@@ -91,3 +91,22 @@ func SendPasswordResetEmail(email string, code string) error {
 
 	return sendEmail(email, subject, body)
 }
+
+func SendMagicLinkEmail(email, token string) error {
+	link := fmt.Sprintf("http://localhost:5173/magic-login?token=%s", token)
+	subject := "Magic Link Login"
+	body := fmt.Sprintf(`
+    <html>
+        <body style="font-family: Arial, sans-serif;">
+            <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; background-color: #f9f9f9;">
+                <h2 style="text-align: center; color: #333;">Login with Magic Link</h2>
+                <p style="color: #555;">Click the button below to log in to your account:</p>
+                <p style="text-align: center;">
+                    <a href="%s" style="padding: 10px 20px; background-color: #4CAF50; color: white; text-decoration: none; border-radius: 5px;">Login</a>
+                </p>
+                <p style="font-size: 12px; color: #999;">If you did not request this email, please ignore it.</p>
+            </div>
+        </body>
+    </html>`, link)
+	return sendEmail(email, subject, body)
+}

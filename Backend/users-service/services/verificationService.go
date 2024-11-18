@@ -76,7 +76,7 @@ func ActivateUser(username string, expiredKey string) error {
 	return nil
 }
 
-func ChangePassword(username string, password string) error {
+func ChangePassword(username string, password string, expiredKey string) error {
 	user, err := repositories.GetUserByUsername(username)
 	if err != nil {
 		return err
@@ -88,6 +88,11 @@ func ChangePassword(username string, password string) error {
 	}
 
 	user.Password = hashedPassword
+
+	_, delReverseErr := redisClient.Del(ctx, "reverse:"+expiredKey).Result()
+	if delReverseErr != nil {
+		log.Printf("Error deleting reverse mapping for key %s: %v", expiredKey, delReverseErr)
+	}
 
 	return repositories.UpdateUser(user.ID, user)
 }

@@ -107,3 +107,34 @@ export const changePassword = async (code: string, newPassword: string) => {
 		}
 	}
 };
+
+export const requestMagicLink = async (email: string) => {
+    try {
+        const url = `${import.meta.env.VITE_USER_BACKEND_URL}/magic-link/request`;
+        const response = await axios.post(url, { email });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            console.error('Error response:', error.response?.data);
+            throw new Error(error.response?.data || 'Failed to send magic link. Please try again.');
+        } else {
+            throw new Error('An unexpected error occurred. Please try again.');
+        }
+    }
+};
+
+// Magic login using token
+export const magicLogin = async (token: string) => {
+    try {
+        const url = `${import.meta.env.VITE_USER_BACKEND_URL}/magic-link/login`;
+        const response = await axios.post(url, { token });
+        return response.data; // Expect an `authToken` or session token
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            console.error('Error response:', error.response?.data);
+            throw new Error(error.response?.data || 'Invalid or expired magic link token.');
+        } else {
+            throw new Error('An unexpected error occurred.');
+        }
+    }
+};

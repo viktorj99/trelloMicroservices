@@ -15,6 +15,8 @@ import {isManager, isMember } from './utils/authHelpers';
 import Verification from './page/Verification';
 import ForgotPasswordPage from './page/ForgotPasswords';
 import ChangePasswordPage from './page/ChangePassword';
+import SendMagicLink from './page/SendMagicLink';
+import MagicLogin from './page/MagicLogin';
 
 export const router = createBrowserRouter([
 	{
@@ -56,6 +58,14 @@ export const router = createBrowserRouter([
 			{
 				path: '/change-password',
 				element: <ChangePasswordPage />,
+			},
+			{
+				path: '/magic-link',
+				element: <SendMagicLink />,
+			},
+			{
+				path: '/magic-login',
+				element: <MagicLogin />,
 			},
 		],
 	},
