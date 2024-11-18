@@ -117,12 +117,12 @@ func (ph *ProjectHandler) UpdateProject(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	// NATS publishing logic (assuming new member was added in the "members" field)
+	// NATS publishing logic
 	if members, ok := updateData["members"].([]interface{}); ok {
 		// Assuming the new member is the last one in the list
 		if len(members) > 0 {
 			newMember := members[len(members)-1].(map[string]interface{})
-			userID := newMember["id"].(string) // Adjust depending on your data structure
+			userID := newMember["id"].(string)
 
 			// Publish the userID to NATS
 			err = ph.publishUserIDToNATS(userID)
