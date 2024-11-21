@@ -5,30 +5,15 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strings"
 	"tasks-service/handlers"
 	"tasks-service/repositories"
 	"tasks-service/services"
 
-	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
-
-func enableCORS(handler http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		handler.ServeHTTP(w, r)
-	})
-}
 
 func main() {
 	err := godotenv.Load()
@@ -57,19 +42,23 @@ func main() {
 	taskService := services.NewTaskService(taskRepo, logger)
 	taskHandler := handlers.NewTaskHandler(taskService, logger)
 
-	router := mux.NewRouter()
-	router.HandleFunc("/tasks", taskHandler.GetAllTasks).Methods("GET")
-	router.HandleFunc("/task/{id}", taskHandler.GetTaskById).Methods("GET")
-	router.HandleFunc("/task/create", taskHandler.CreateTask).Methods("POST")
+	// Adjusted route handling for consistency
+	http.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/tasks/") && len(r.URL.Path) > len("/tasks/") {
+			taskHandler.GetTaskById(w, r)
+		} else {
+			taskHandler.GetAllTasks(w, r)
+		}
+	})
 
-	http.Handle("/", enableCORS(router))
+	http.HandleFunc("/tasks/create", taskHandler.CreateTask)
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8082"
 	}
 	logger.Printf("Server is starting on port %s", port)
-	err = http.ListenAndServe(":"+port, nil)
+	err = http.ListenAndServe(":"+port, http.DefaultServeMux)
 	if err != nil {
 		logger.Fatal("Server failed to start: ", err)
 	}

@@ -15,9 +15,9 @@ import (
 var ctx = context.Background()
 
 var redisClient = redis.NewClient(&redis.Options{
-	Addr:     "localhost:6379", // Redis address
-	Password: "",               // No password set
-	DB:       0,                // Use default DB
+	Addr:     "localhost:6379",
+	Password: "",
+	DB:       0,
 })
 
 type LoginRequest struct {
@@ -48,22 +48,18 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Generate verification code
 	code, err := services.GenerateVerificationCode()
 	if err != nil {
 		http.Error(w, "Failed to generate verification code", http.StatusInternalServerError)
 		return
 	}
 
-	// Send the verification email
 	err = services.SendVerificationEmail(user.Email, code)
 	if err != nil {
 		log.Printf("Error while sending verification email: %v", err)
 		http.Error(w, "Failed to send verification email", http.StatusInternalServerError)
 		return
 	}
-
-	log.Println("The User Username is", user.Username)
 
 	err = services.SaveVerificationCode(code, user.Username)
 	if err != nil {
@@ -76,6 +72,7 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func LoginUser(w http.ResponseWriter, r *http.Request) {
+	log.Printf("HTTP Method: %s, Path: %s", r.Method, r.URL.Path)
 	if r.Method != http.MethodPost {
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return

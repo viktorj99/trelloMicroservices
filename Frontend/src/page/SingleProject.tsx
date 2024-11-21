@@ -25,33 +25,33 @@ const users: User[] = [
 
 const SingleProject = () => {
 	const { id } = useParams<{ id: string }>();
+	console.log('Project ID from URL:', id);
 	const [isModalVisible, setIsModalVisible] = useState(false);
 	const [isTaskModalVisible, setIsTaskModalVisible] = useState(false);
 	const [selectedUser, setSelectedUser] = useState<string | null>(null);
 	const [taskForm] = Form.useForm();
 
-	const { data: project } = useQuery({
+	// Hooks moraju biti na vrhu
+	const { data: project, isLoading, error } = useQuery({
 		queryKey: ['project', id],
 		queryFn: () => getProject(id!),
 	});
 
-	console.log(project);
-
 	const queryClient = useQueryClient();
 
 	const mutation = useMutation({
-		mutationFn: (username: string) => handleDeleteMember(username, project.members, id!),
+		mutationFn: (username: string) => handleDeleteMember(username, project?.members || [], id!),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['project', id] });
 			notification.success({
 				message: 'Success',
-				description: 'Projects created successfully!',
+				description: 'Projects updated successfully!',
 			});
 		},
 		onError: (error: unknown) => {
 			notification.error({
 				message: 'Error',
-				description: `Project creation failed: ${(error as Error).message}`,
+				description: `Project update failed: ${(error as Error).message}`,
 			});
 		},
 	});
@@ -59,7 +59,7 @@ const SingleProject = () => {
 	const addMutation = useMutation({
 		mutationFn: (username: string) => {
 			const newUser = users.find((user) => user.username === username);
-			return addMember(newUser!, project.members, id!);
+			return addMember(newUser!, project?.members || [], id!);
 		},
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['project', id] });
@@ -76,7 +76,6 @@ const SingleProject = () => {
 			});
 		},
 	});
-
 
 	const taskMutation = useMutation({
 		mutationFn: createTask,
@@ -97,6 +96,21 @@ const SingleProject = () => {
 		},
 	});
 
+	// Provera stanja učitavanja i grešaka
+	if (isLoading) {
+		return <p>Loading project data...</p>;
+	}
+
+	if (error) {
+		return <p>Error: {(error as Error).message}</p>;
+	}
+
+	if (!project) {
+		return <p>No project data available.</p>;
+	}
+
+	console.log('Fetched project:', project);
+
 	const handleAddMember = () => {
 		if (selectedUser) {
 			addMutation.mutate(selectedUser);
@@ -114,10 +128,10 @@ const SingleProject = () => {
 
 	return (
 		<div>
-			<h1>{project?.name}</h1>
-			<p>Expected End Date: {project?.expectedEndDate}</p>
-			<p>Max Members: {project?.maxMembers}</p>
-			<p>Min Members: {project?.minMembers}</p>
+			<h1>{project.name}</h1>
+			<p>Expected End Date: {project.expectedEndDate}</p>
+			<p>Max Members: {project.maxMembers}</p>
+			<p>Min Members: {project.minMembers}</p>
 
 			<Button type='primary' onClick={() => setIsModalVisible(true)}>
 				Add Member
@@ -171,17 +185,11 @@ const SingleProject = () => {
 						<Input.TextArea placeholder='Enter task description' />
 					</Form.Item>
 
-					{/* Hidden field for setting status to "PENDING" */}
 					<Form.Item name='status' initialValue='PENDING' hidden>
 						<Input type='hidden' />
 					</Form.Item>
 
-					<Form.Item
-						label='Project ID'
-						name='project'
-						initialValue={id}
-						hidden
-					/>
+					<Form.Item label='Project ID' name='project' initialValue={id} hidden />
 
 					<Form.Item>
 						<Button type='primary' htmlType='submit'>
@@ -191,7 +199,7 @@ const SingleProject = () => {
 				</Form>
 			</Modal>
 
-			<Table dataSource={project?.members} rowKey='username'>
+			<Table dataSource={project.members} rowKey='username'>
 				<Table.Column title='Username' dataIndex='username' />
 				<Table.Column title='Role' dataIndex='role' />
 				<Table.Column
@@ -208,3 +216,4 @@ const SingleProject = () => {
 };
 
 export default SingleProject;
+

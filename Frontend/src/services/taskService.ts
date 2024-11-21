@@ -1,10 +1,11 @@
 import axios from 'axios';
 import { CreateTask } from '../entities/models/CreateTask';
 
+const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tasks`;
+
 export const createTask = async (task: CreateTask) => {
     try {
-        const url = `${import.meta.env.VITE_TASK_BACKEND_URL}/task/create`;
-
+        const url = `${BASE_URL}/create`;
         const response = await axios.post(url, task);
         return response;
     } catch (error) {

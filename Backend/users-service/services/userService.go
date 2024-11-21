@@ -3,6 +3,7 @@ package services
 import (
 	"errors"
 	"fmt"
+	"log"
 	"os"
 	"regexp"
 	"strings"
@@ -44,7 +45,9 @@ var consulClient *api.Client
 
 func init() {
 	var err error
-	consulClient, err = api.NewClient(api.DefaultConfig())
+	config := api.DefaultConfig()
+	config.Address = "consul:8500" // Use Docker service name and port
+	consulClient, err = api.NewClient(config)
 	if err != nil {
 		fmt.Printf("Failed to create Consul client: %v\n", err)
 	}
@@ -112,7 +115,7 @@ func Login(username, password string) (string, error) {
 		return "", errors.New("invalid password")
 	}
 
-	token, err := generateJWTToken(user.Username, user.Role)
+	token, err := GenerateJWTToken(user.Username, user.Role)
 	if err != nil {
 		return "", err
 	}
@@ -120,7 +123,7 @@ func Login(username, password string) (string, error) {
 	return token, nil
 }
 
-func generateJWTToken(username, role string) (string, error) {
+func GenerateJWTToken(username, role string) (string, error) {
 	if role != model.RoleManager && role != model.RoleMember {
 		return "", errors.New("invalid role")
 	}
@@ -136,7 +139,6 @@ func generateJWTToken(username, role string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	fmt.Print(role)
 
 	secretKey := os.Getenv("JWT_SECRET")
 	tokenString, err := token.SignedString([]byte(secretKey))
@@ -157,4 +159,17 @@ func GetAllUserMembers() ([]model.User, error) {
 
 func GetUserByID(userID string) (model.User, error) {
 	return repositories.GetUserByID(userID)
+}
+
+func GetUserByEmail(email string) (model.User, error) {
+	user, err := repositories.GetUserByEmail(email)
+	if err != nil {
+		if err.Error() == "user not found" {
+			return model.User{}, errors.New("user not found")
+		}
+		log.Printf("Service: Error while fetching user by email: %v", err)
+		return model.User{}, errors.New("internal server error")
+	}
+
+	return user, nil
 }

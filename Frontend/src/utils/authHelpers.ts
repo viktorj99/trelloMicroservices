@@ -36,3 +36,8 @@ export const hasRole = (roles: string[]) => {
   const tokenData = getTokenData();
   return tokenData ? roles.includes(tokenData.role) : false;
 };
+
+export const isUserLoggedIn = (): boolean => {
+  const token = getToken(); 
+  return !!token; 
+};
