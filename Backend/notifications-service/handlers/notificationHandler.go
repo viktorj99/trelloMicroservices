@@ -7,111 +7,60 @@ import (
 	service "notifications-service/services"
 
 	"github.com/gocql/gocql"
-	"github.com/nats-io/nats.go"
 )
 
 type NotificationHandler struct {
-	service  *service.NotificationService
-	natsConn *nats.Conn
+	notificationService *service.NotificationService
 }
 
-// NewNotificationHandler initializes the handler with the service layer and NATS connection
-func NewNotificationHandler(service *service.NotificationService, natsConn *nats.Conn) *NotificationHandler {
-	handler := &NotificationHandler{
-		service:  service,
-		natsConn: natsConn,
-	}
-
-	handler.subscribeToNotifications()
-
-	return handler
+// NewNotificationHandler initializes a new NotificationHandler
+func NewNotificationHandler(service *service.NotificationService) *NotificationHandler {
+	return &NotificationHandler{notificationService: service}
 }
 
-// subscribeToNotifications subscribes to the "notifications" subject on NATS
-func (h *NotificationHandler) subscribeToNotifications() {
-	subject := "notifications" // Define the subject to subscribe to
-	_, err := h.natsConn.Subscribe(subject, func(msg *nats.Msg) {
-		var notification struct {
-			UserID  string `json:"user_id"`
-			Message string `json:"message"`
-		}
-
-		// Decode the incoming message
-		if err := json.Unmarshal(msg.Data, &notification); err != nil {
-			log.Println("Failed to unmarshal notification:", err)
-			return
-		}
-
-		// Parse the UserID to gocql.UUID
-		userID, err := gocql.ParseUUID(notification.UserID)
-		if err != nil {
-			log.Println("Invalid user_id in NATS message:", err)
-			return
-		}
-
-		// Create the notification using the service
-		if err := h.service.CreateNotification(userID, notification.Message); err != nil {
-			log.Println("Failed to create notification:", err)
-			return
-		}
-
-		log.Printf("Notification created for user %s: %s", notification.UserID, notification.Message)
-	})
-
-	if err != nil {
-		log.Fatalf("Error subscribing to NATS subject 'notifications': %v", err)
-	}
+// NotificationRequest represents the request body structure
+type NotificationRequest struct {
+	ProjectName string   `json:"project_name"`
+	UserIDs     []string `json:"user_ids"`
 }
 
-// CreateNotificationHandler handles the creation of a notification via HTTP
-func (h *NotificationHandler) CreateNotificationHandler(w http.ResponseWriter, r *http.Request) {
-	var req struct {
-		UserID  string `json:"user_id"`
-		Message string `json:"message"`
-	}
-
-	// Decode the request body
+// NotifyMembersHandler handles the creation of notifications for multiple members
+func (h *NotificationHandler) NotifyMembersHandler(w http.ResponseWriter, r *http.Request) {
+	// Parse the request body
+	var req NotificationRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
 
-	// Parse UserID to gocql.UUID
-	userID, err := gocql.ParseUUID(req.UserID)
-	if err != nil {
-		http.Error(w, "Invalid user_id", http.StatusBadRequest)
+	// Check if project name and user IDs are provided
+	if req.ProjectName == "" || len(req.UserIDs) == 0 {
+		http.Error(w, "Project name and user IDs are required", http.StatusBadRequest)
 		return
 	}
 
-	// Call the service to create the notification
-	if err := h.service.CreateNotification(userID, req.Message); err != nil {
-		http.Error(w, "Failed to create notification", http.StatusInternalServerError)
-		return
+	// Process each user ID and create a notification
+	for _, id := range req.UserIDs {
+		// Convert string ID to gocql.UUID
+		userID, err := gocql.ParseUUID(id)
+		if err != nil {
+			log.Printf("Invalid UUID for user: %s", id)
+			http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+			return
+		}
+
+		// Construct the notification message
+		message := "You have been added to the project: " + req.ProjectName
+
+		// Save the notification using the service
+		if err := h.notificationService.CreateNotification(userID, message); err != nil {
+			log.Printf("Failed to create notification for user: %s, error: %v", userID, err)
+			http.Error(w, "Failed to create notifications", http.StatusInternalServerError)
+			return
+		}
 	}
 
+	// Return a success response
 	w.WriteHeader(http.StatusCreated)
-	json.NewEncoder(w).Encode(map[string]string{"status": "notification created"})
-}
-
-// GetNotificationsHandler handles retrieving notifications by user and month
-func (h *NotificationHandler) GetNotificationsHandler(w http.ResponseWriter, r *http.Request) {
-	userIDStr := r.URL.Query().Get("user_id")
-	yearMonth := r.URL.Query().Get("year_month")
-
-	// Parse UserID
-	userID, err := gocql.ParseUUID(userIDStr)
-	if err != nil {
-		http.Error(w, "Invalid user_id", http.StatusBadRequest)
-		return
-	}
-
-	// Call the service to get notifications
-	notifications, err := h.service.GetNotifications(userID, yearMonth)
-	if err != nil {
-		http.Error(w, "Failed to fetch notifications", http.StatusInternalServerError)
-		return
-	}
-
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(notifications)
+	w.Write([]byte("Notifications created successfully"))
 }

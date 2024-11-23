@@ -21,7 +21,7 @@ export const createProject = async (user: DTOCreateProject) => {
             throw new Error(
                 error.response?.data || 'An error occurred while creating the project.'
             );
-        } else {
+        } else {  
             console.error('Unexpected error:', error);
             throw new Error('An unexpected error occurred.');
         }
@@ -93,31 +93,6 @@ export const addMember = async (newMember: User, members: User[], id: string) =>
             console.error('Error response:', error.response?.data);
             throw new Error(
                 error.response?.data?.message || 'An error occurred while adding the member.'
-            );
-        } else {
-            console.error('Unexpected error:', error);
-            throw new Error('An unexpected error occurred.');
-        }
-    }
-};
-
-// NotifyMembers function to notify added members
-export const notifyMembers = async (projectName: string, memberIds: string[]) => {
-    try {
-        const url = `${BASE_URL}/notify-members`;
-
-        // Send the project name and member IDs to the backend
-        const response = await axios.post(url, {
-            projectName,
-            memberIds
-        });
-
-        return response.data;
-    } catch (error) {
-        if (axios.isAxiosError(error)) {
-            console.error('Error response:', error.response?.data);
-            throw new Error(
-                error.response?.data?.message || 'An error occurred while notifying members.'
             );
         } else {
             console.error('Unexpected error:', error);

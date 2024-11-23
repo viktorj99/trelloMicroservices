@@ -7,6 +7,7 @@ import { createProject } from '../services/projectService';
 import moment from 'moment';
 import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
+import { notifyMembers } from '../services/notificationService';
 
 const { Option } = Select;
 
@@ -38,22 +39,6 @@ const CreateProjectForm: React.FC = () => {
 		queryFn: async () => await getAllUserMembers(),
 	});
 
-	const notifyMembers = async (projectName: string, memberIds: string[]) => {
-		try {
-			await ProjectService.notifyMembers(projectName, memberIds);
-			notification.success({
-				message: 'Members Notified',
-				description: `Members have been notified about the project ${projectName}`,
-			});
-		} catch (error) {
-			console.error('Failed to notify members:', error);
-			notification.error({
-				message: 'Notification Error',
-				description: 'Failed to notify some or all members.',
-			});
-		}
-	};
-
 	const onFinish = (values: CreateProject) => {
 		const tokenData = getTokenData();
 		if (!tokenData || tokenData.role !== 'Manager') {
@@ -81,19 +66,27 @@ const CreateProjectForm: React.FC = () => {
 			expectedEndDate: moment(values.expectedEndDate).format('YYYY-MM-DD'),
 			manager: selectedManager,
 			members: selectedMembers,
-		});
-
-		try {
-			const createdProject = await ProjectService.createProject(values);
-	
-			if (createdProject) {
-				// After successfully creating the project, notify members
-				const memberIds = selectedMembers.map(member => member.id); // Extract member ids
-				await notifyMembers(createdProject.projectName, memberIds);
+		}, {
+			onSuccess: () => {
+				// On successful project creation, notify members
+				const memberIds = selectedMembers
+					.map((member) => member.id)
+					.filter((id): id is string  => !!id);
+				notifyMembers(values.name, memberIds)
+					.then(() => {
+						notification.success({
+							message: 'Success',
+							description: 'Members notified successfully!',
+						});
+					})
+					.catch((error) => {
+						notification.error({
+							message: 'Error',
+							description: `Failed to notify members: ${error.message}`,
+						});
+					});
 			}
-		} catch (error) {
-			console.error('Error creating project:', error);
-		}
+		});
 		
 	};
 
