@@ -7,7 +7,7 @@ import { createProject } from '../services/projectService';
 import moment from 'moment';
 import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
-import { notifyMembers } from '../services/notificationService';
+import * as notificationService from '../services/notificationService';
 
 const { Option } = Select;
 
@@ -72,7 +72,7 @@ const CreateProjectForm: React.FC = () => {
 				const memberIds = selectedMembers
 					.map((member) => member.id)
 					.filter((id): id is string  => !!id);
-				notifyMembers(values.name, memberIds)
+					notificationService.notifyMembers(values.name, memberIds)
 					.then(() => {
 						notification.success({
 							message: 'Success',
