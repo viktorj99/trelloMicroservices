@@ -6,6 +6,7 @@ import (
 	"os"
 	"projects-service/client"
 
+	"projects-service/handlers"
 	"projects-service/helpers"
 )
 
@@ -25,13 +26,7 @@ func main() {
 
 	// Inicijalizacija servisa
 	service := helpers.InitializeService(ctx, logger)
-
-	// Podesavanje NATS-a i handlera
-	handler, natsConn, err := helpers.SetupNats(service)
-	if err != nil {
-		log.Fatal("Failed to initialize NATS connection:", err)
-	}
-	defer natsConn.Close()
+	handler := handlers.NewProjectHandler(service)
 
 	// Postavljanje ruta za Project REST API i GRPC
 	router := helpers.SetupRoutes(handler, userClient.Client)
