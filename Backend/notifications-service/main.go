@@ -13,6 +13,8 @@ import (
 func main() {
 	// Create Cassandra session
 	cluster := gocql.NewCluster("127.0.0.1")
+	cluster.Keyspace = "trello"
+	cluster.Consistency = gocql.Quorum
 	session, _ := cluster.CreateSession()
 	defer session.Close()
 
