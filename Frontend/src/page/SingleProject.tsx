@@ -3,217 +3,270 @@ import { useParams } from 'react-router-dom';
 import { addMember, getProject, handleDeleteMember } from '../services/projectService';
 import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
 import { User } from '../entities/models/User';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Role } from '../entities/models/Role';
-import { createTask } from '../services/taskService';
+import { createTask, getTasksByProjectId, assignMemberToTask } from '../services/taskService';
+import { Task } from '../entities/models/Task';
 const { Option } = Select;
 
 const users: User[] = [
-	{
-		username: 'john_doe',
-		role: Role.Member,
-	},
-	{
-		username: 'jane_smith',
-		role: Role.Member,
-	},
-	{
-		username: 'aliceUZemljiCuda',
-		role: Role.Member,
-	},
+  {
+    username: 'john_doe',
+    role: Role.Member,
+  },
+  {
+    username: 'jane_smith',
+    role: Role.Member,
+  },
+  {
+    username: 'aliceUZemljiCuda',
+    role: Role.Member,
+  },
 ];
 
 const SingleProject = () => {
-	const { id } = useParams<{ id: string }>();
-	console.log('Project ID from URL:', id);
-	const [isModalVisible, setIsModalVisible] = useState(false);
-	const [isTaskModalVisible, setIsTaskModalVisible] = useState(false);
-	const [selectedUser, setSelectedUser] = useState<string | null>(null);
-	const [taskForm] = Form.useForm();
+  const { id } = useParams<{ id: string }>();
+  console.log('Project ID from URL:', id);
+  const [isModalVisible, setIsModalVisible] = useState(false);
+  const [isTaskModalVisible, setIsTaskModalVisible] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<string | null>(null);
+  const [taskForm] = Form.useForm();
+  const [tasks, setTasks] = useState<Task[]>([]);
 
-	// Hooks moraju biti na vrhu
-	const { data: project, isLoading, error } = useQuery({
-		queryKey: ['project', id],
-		queryFn: () => getProject(id!),
-	});
+  // Fetch project data
+  const { data: project, isLoading, error } = useQuery({
+    queryKey: ['project', id],
+    queryFn: () => getProject(id!),
+  });
 
-	const queryClient = useQueryClient();
+  // Fetch tasks associated with the project
+  useEffect(() => {
+    if (id) {
+      getTasksByProjectId(id)
+        .then((tasks) => setTasks(tasks))  // TypeScript now knows tasks is of type Task[]
+        .catch(console.error);
+    }
+  }, [id]);
 
-	const mutation = useMutation({
-		mutationFn: (username: string) => handleDeleteMember(username, project?.members || [], id!),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['project', id] });
-			notification.success({
-				message: 'Success',
-				description: 'Projects updated successfully!',
-			});
-		},
-		onError: (error: unknown) => {
-			notification.error({
-				message: 'Error',
-				description: `Project update failed: ${(error as Error).message}`,
-			});
-		},
-	});
+  const queryClient = useQueryClient();
 
-	const addMutation = useMutation({
-		mutationFn: (username: string) => {
-			const newUser = users.find((user) => user.username === username);
-			return addMember(newUser!, project?.members || [], id!);
-		},
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['project', id] });
-			notification.success({
-				message: 'Success',
-				description: 'Member added successfully!',
-			});
-			setIsModalVisible(false);
-		},
-		onError: (error: unknown) => {
-			notification.error({
-				message: 'Error',
-				description: `Member addition failed: ${(error as Error).message}`,
-			});
-		},
-	});
+  const mutation = useMutation({
+    mutationFn: (username: string) => handleDeleteMember(username, project?.members || [], id!),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      notification.success({
+        message: 'Success',
+        description: 'Project updated successfully!',
+      });
+    },
+    onError: (error: unknown) => {
+      notification.error({
+        message: 'Error',
+        description: `Project update failed: ${(error as Error).message}`,
+      });
+    },
+  });
 
-	const taskMutation = useMutation({
-		mutationFn: createTask,
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: ['tasks'] });
-			notification.success({
-				message: 'Success',
-				description: 'Task created successfully!',
-			});
-			taskForm.resetFields();
-			setIsTaskModalVisible(false);
-		},
-		onError: (error: unknown) => {
-			notification.error({
-				message: 'Error',
-				description: `Task creation failed: ${(error as Error).message}`,
-			});
-		},
-	});
+  const addMutation = useMutation({
+    mutationFn: (username: string) => {
+      const newUser = users.find((user) => user.username === username);
+      return addMember(newUser!, project?.members || [], id!);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', id] });
+      notification.success({
+        message: 'Success',
+        description: 'Member added successfully!',
+      });
+      setIsModalVisible(false);
+    },
+    onError: (error: unknown) => {
+      notification.error({
+        message: 'Error',
+        description: `Member addition failed: ${(error as Error).message}`,
+      });
+    },
+  });
 
-	// Provera stanja učitavanja i grešaka
-	if (isLoading) {
-		return <p>Loading project data...</p>;
-	}
+  const taskMutation = useMutation({
+    mutationFn: createTask,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      notification.success({
+        message: 'Success',
+        description: 'Task created successfully!',
+      });
+      taskForm.resetFields();
+      setIsTaskModalVisible(false);
+    },
+    onError: (error: unknown) => {
+      notification.error({
+        message: 'Error',
+        description: `Task creation failed: ${(error as Error).message}`,
+      });
+    },
+  });
 
-	if (error) {
-		return <p>Error: {(error as Error).message}</p>;
-	}
+  const assignMutation = useMutation({
+    mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
+      assignMemberToTask(taskId, memberId),
+    onSuccess: () => {
+      console.log('Member assigned successfully');
+    },
+    onError: (error) => {
+      console.error('Error assigning member', error);
+    },
+  });
 
-	if (!project) {
-		return <p>No project data available.</p>;
-	}
+  const handleAssignMemberToTask = (taskId: string, memberId: string) => {
+    if (taskId && memberId) {
+      assignMutation.mutate({ taskId, memberId });
+    }
+  };
 
-	console.log('Fetched project:', project);
+  if (isLoading) {
+    return <p>Loading project data...</p>;
+  }
 
-	const handleAddMember = () => {
-		if (selectedUser) {
-			addMutation.mutate(selectedUser);
-		} else {
-			notification.error({
-				message: 'Error',
-				description: 'Please select a user to add.',
-			});
-		}
-	};
+  if (error) {
+    return <p>Error: {(error as Error).message}</p>;
+  }
 
-	const handleCreateTask = (values: any) => {
-		taskMutation.mutate(values);
-	};
+  if (!project) {
+    return <p>No project data available.</p>;
+  }
 
-	return (
-		<div>
-			<h1>{project.name}</h1>
-			<p>Expected End Date: {project.expectedEndDate}</p>
-			<p>Max Members: {project.maxMembers}</p>
-			<p>Min Members: {project.minMembers}</p>
+  const handleAddMember = () => {
+    if (selectedUser) {
+      addMutation.mutate(selectedUser);
+    } else {
+      notification.error({
+        message: 'Error',
+        description: 'Please select a user to add.',
+      });
+    }
+  };
 
-			<Button type='primary' onClick={() => setIsModalVisible(true)}>
-				Add Member
-			</Button>
+  const handleCreateTask = (values: any) => {
+    taskMutation.mutate(values);
+  };
 
-			<Button type='primary' onClick={() => setIsTaskModalVisible(true)} style={{ marginLeft: 16 }}>
-				Create Task
-			</Button>
+  return (
+    <div>
+      <h1>{project.name}</h1>
+      <p>Expected End Date: {project.expectedEndDate}</p>
+      <p>Max Members: {project.maxMembers}</p>
+      <p>Min Members: {project.minMembers}</p>
 
-			{/* Modal for adding a member */}
-			<Modal
-				title='Add a Member'
-				open={isModalVisible}
-				onOk={handleAddMember}
-				onCancel={() => setIsModalVisible(false)}
-			>
-				<Select
-					placeholder='Select a user'
-					style={{ width: '100%' }}
-					onChange={(value) => setSelectedUser(value)}
-				>
-					{users.map((user) => (
-						<Option key={user.username} value={user.username}>
-							{user.username}
-						</Option>
-					))}
-				</Select>
-			</Modal>
+      <Button type='primary' onClick={() => setIsModalVisible(true)}>
+        Add Member
+      </Button>
 
-			{/* Modal for creating a task */}
-			<Modal
-				title='Create Task'
-				open={isTaskModalVisible}
-				onCancel={() => setIsTaskModalVisible(false)}
-				footer={null}
-			>
-				<Form form={taskForm} layout='vertical' onFinish={handleCreateTask}>
-					<Form.Item
-						label='Task Title'
-						name='title'
-						rules={[{ required: true, message: 'Please enter the task title!' }]}
-					>
-						<Input placeholder='Enter task title' />
-					</Form.Item>
+      <Button type='primary' onClick={() => setIsTaskModalVisible(true)} style={{ marginLeft: 16 }}>
+        Create Task
+      </Button>
 
-					<Form.Item
-						label='Description'
-						name='description'
-						rules={[{ required: true, message: 'Please enter the description!' }]}
-					>
-						<Input.TextArea placeholder='Enter task description' />
-					</Form.Item>
+      {/* Modal for adding a member */}
+      <Modal
+        title='Add a Member'
+        open={isModalVisible}
+        onOk={handleAddMember}
+        onCancel={() => setIsModalVisible(false)}
+      >
+        <Select
+          placeholder='Select a user'
+          style={{ width: '100%' }}
+          onChange={(value) => setSelectedUser(value)}
+        >
+          {users.map((user) => (
+            <Option key={user.username} value={user.username}>
+              {user.username}
+            </Option>
+          ))}
+        </Select>
+      </Modal>
 
-					<Form.Item name='status' initialValue='PENDING' hidden>
-						<Input type='hidden' />
-					</Form.Item>
+      {/* Modal for creating a task */}
+      <Modal
+        title='Create Task'
+        open={isTaskModalVisible}
+        onCancel={() => setIsTaskModalVisible(false)}
+        footer={null}
+      >
+        <Form form={taskForm} layout='vertical' onFinish={handleCreateTask}>
+          <Form.Item
+            label='Task Title'
+            name='title'
+            rules={[{ required: true, message: 'Please enter the task title!' }]}
+          >
+            <Input placeholder='Enter task title' />
+          </Form.Item>
 
-					<Form.Item label='Project ID' name='project' initialValue={id} hidden />
+          <Form.Item
+            label='Description'
+            name='description'
+            rules={[{ required: true, message: 'Please enter the description!' }]}
+          >
+            <Input.TextArea placeholder='Enter task description' />
+          </Form.Item>
 
-					<Form.Item>
-						<Button type='primary' htmlType='submit'>
-							Create Task
-						</Button>
-					</Form.Item>
-				</Form>
-			</Modal>
+          <Form.Item name='status' initialValue='PENDING' hidden>
+            <Input type='hidden' />
+          </Form.Item>
 
-			<Table dataSource={project.members} rowKey='username'>
-				<Table.Column title='Username' dataIndex='username' />
-				<Table.Column title='Role' dataIndex='role' />
-				<Table.Column
-					title='Action'
-					render={(_, record: User) => (
-						<Button danger onClick={() => mutation.mutate(record.username)}>
-							Delete
-						</Button>
-					)}
-				/>
-			</Table>
-		</div>
-	);
+          <Form.Item label='Project ID' name='project' initialValue={id} hidden />
+
+          <Form.Item>
+            <Button type='primary' htmlType='submit'>
+              Create Task
+            </Button>
+          </Form.Item>
+        </Form>
+      </Modal>
+
+      {/* Tasks Table */}
+      <h2>Tasks</h2>
+      <Table dataSource={tasks} rowKey='id'>
+        <Table.Column title='Task Title' dataIndex='title' />
+        <Table.Column title='Description' dataIndex='description' />
+        <Table.Column title='Status' dataIndex='status' />
+        <Table.Column
+          title='Assign Member'
+          render={(_, task: any) => {
+            if (task.status === 'PENDING') {
+              return (
+                <Select
+                  style={{ width: 200 }}
+                  onChange={(value) => handleAssignMemberToTask(task.id!, value)}
+                >
+                  {project.members.map((member: User) => (
+                    <Option key={member.id} value={member.id}>
+                      {member.username}
+                    </Option>
+                  ))}
+                </Select>
+              );
+            }
+            return <span>Assigned</span>;
+          }}
+        />
+      </Table>
+
+      {/* Members Table */}
+      <Table dataSource={project.members} rowKey='username'>
+        <Table.Column title='Username' dataIndex='username' />
+        <Table.Column title='Role' dataIndex='role' />
+        <Table.Column
+          title='Action'
+          render={(_, record: User) => (
+            <Button danger onClick={() => mutation.mutate(record.username)}>
+              Delete
+            </Button>
+          )}
+        />
+      </Table>
+    </div>
+  );
 };
 
 export default SingleProject;
-

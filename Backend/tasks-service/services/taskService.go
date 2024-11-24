@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log"
 
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 
 	"tasks-service/model"
@@ -64,4 +65,29 @@ func (s *TaskService) CreateTask(ctx context.Context, task *model.Task) (*model.
 	}
 
 	return task, nil
+}
+
+func (s *TaskService) GetTasksByProjectId(ctx context.Context, projectId string) ([]model.Task, error) {
+	objectID, err := primitive.ObjectIDFromHex(projectId)
+	if err != nil {
+		s.logger.Println("Invalid project ID format:", err)
+		return nil, err
+	}
+
+	tasks, err := s.repo.GetByProjectId(ctx, objectID)
+	if err != nil {
+		s.logger.Println("Failed to get tasks by project ID:", err)
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+func (s *TaskService) UpdateTask(ctx context.Context, id primitive.ObjectID, updateData bson.M) error {
+	_, err := s.repo.Update(ctx, id, updateData)
+	if err != nil {
+		s.logger.Println("Failed to update task:", err)
+		return err
+	}
+	return nil
 }

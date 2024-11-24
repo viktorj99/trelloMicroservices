@@ -5,17 +5,18 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"tasks-service/handlers"
 	"tasks-service/repositories"
 	"tasks-service/services"
 
+	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
+	// Load environment variables
 	err := godotenv.Load()
 	if err != nil {
 		log.Fatal("Error loading .env file")
@@ -42,23 +43,22 @@ func main() {
 	taskService := services.NewTaskService(taskRepo, logger)
 	taskHandler := handlers.NewTaskHandler(taskService, logger)
 
-	// Adjusted route handling for consistency
-	http.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {
-		if strings.HasPrefix(r.URL.Path, "/tasks/") && len(r.URL.Path) > len("/tasks/") {
-			taskHandler.GetTaskById(w, r)
-		} else {
-			taskHandler.GetAllTasks(w, r)
-		}
-	})
+	router := mux.NewRouter()
 
-	http.HandleFunc("/tasks/create", taskHandler.CreateTask)
+	router.HandleFunc("/tasks", taskHandler.GetAllTasks).Methods("GET")
+	router.HandleFunc("/tasks/{id}", taskHandler.GetTaskById).Methods("GET")
+	router.HandleFunc("/tasks/{projectId}/tasks", taskHandler.GetTasksByProjectId).Methods("GET")
+	router.HandleFunc("/tasks/create", taskHandler.CreateTask).Methods("POST")
+	router.HandleFunc("/tasks/{taskID}/assign/{memberID}", taskHandler.AssignMemberToTask).Methods("PUT")
+	router.HandleFunc("/tasks/{taskID}/member/{memberID}/toggle-status", taskHandler.ToggleTaskStatus).Methods("POST")
 
 	port := os.Getenv("PORT")
 	if port == "" {
 		port = "8082"
 	}
 	logger.Printf("Server is starting on port %s", port)
-	err = http.ListenAndServe(":"+port, http.DefaultServeMux)
+
+	err = http.ListenAndServe(":"+port, router)
 	if err != nil {
 		logger.Fatal("Server failed to start: ", err)
 	}

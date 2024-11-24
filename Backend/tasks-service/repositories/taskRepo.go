@@ -91,3 +91,37 @@ func (tr *TaskRepo) Insert(ctx context.Context, task *model.Task) (*mongo.Insert
 
 	return result, nil
 }
+
+func (tr *TaskRepo) GetByProjectId(ctx context.Context, projectId primitive.ObjectID) ([]model.Task, error) {
+	var tasks []model.Task
+
+	filter := bson.M{"project": projectId}
+
+	cursor, err := tr.collection().Find(ctx, filter)
+	if err != nil {
+		tr.logger.Println("Error retrieving tasks by project ID:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	if err = cursor.All(ctx, &tasks); err != nil {
+		tr.logger.Println("Error decoding tasks by project ID:", err)
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+func (tr *TaskRepo) Update(ctx context.Context, id primitive.ObjectID, updateData bson.M) (*mongo.UpdateResult, error) {
+	filter := bson.M{"_id": id}
+
+	update := bson.M{"$set": updateData}
+
+	result, err := tr.collection().UpdateOne(ctx, filter, update)
+	if err != nil {
+		tr.logger.Println("Error updating task:", err)
+		return nil, err
+	}
+
+	return result, nil
+}

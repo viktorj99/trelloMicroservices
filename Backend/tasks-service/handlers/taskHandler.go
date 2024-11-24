@@ -9,6 +9,8 @@ import (
 	"tasks-service/services"
 
 	"github.com/gorilla/mux"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
 type TaskHandler struct {
@@ -71,4 +73,110 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(createdTask)
+}
+
+func (h *TaskHandler) AssignMemberToTask(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	taskID := vars["taskID"]
+	memberID := vars["memberID"]
+
+	ctx := r.Context()
+
+	taskObjectID, err := primitive.ObjectIDFromHex(taskID)
+	if err != nil {
+		h.logger.Println("Invalid task ID format:", err)
+		http.Error(w, "Invalid task ID format", http.StatusBadRequest)
+		return
+	}
+
+	memberObjectID, err := primitive.ObjectIDFromHex(memberID)
+	if err != nil {
+		h.logger.Println("Invalid member ID format:", err)
+		http.Error(w, "Invalid member ID format", http.StatusBadRequest)
+		return
+	}
+
+	updateData := bson.M{
+		"member": memberObjectID,
+		"status": model.InProgress,
+	}
+
+	err = h.service.UpdateTask(ctx, taskObjectID, updateData)
+	if err != nil {
+		h.logger.Println("Error assigning member to task:", err)
+		http.Error(w, "Failed to assign member to task", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Member assigned to task successfully"))
+}
+
+func (h *TaskHandler) GetTasksByProjectId(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectId := vars["projectId"]
+
+	ctx := r.Context()
+	tasks, err := h.service.GetTasksByProjectId(ctx, projectId)
+	if err != nil {
+		h.logger.Println("Error fetching tasks by project ID:", err)
+		http.Error(w, "Failed to retrieve tasks by project ID", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tasks)
+}
+
+func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	taskID := vars["taskID"]
+	memberID := vars["memberID"]
+
+	taskObjectID, err := primitive.ObjectIDFromHex(taskID)
+	if err != nil {
+		h.logger.Println("Invalid task ID format:", err)
+		http.Error(w, "Invalid task ID format", http.StatusBadRequest)
+		return
+	}
+
+	memberObjectID, err := primitive.ObjectIDFromHex(memberID)
+	if err != nil {
+		h.logger.Println("Invalid member ID format:", err)
+		http.Error(w, "Invalid member ID format", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+	task, err := h.service.GetTaskById(ctx, taskID)
+	if err != nil {
+		h.logger.Println("Error fetching task:", err)
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	var updateStatus model.Status
+	if task.Status == model.InProgress {
+		updateStatus = model.Finished
+	} else if task.Status == model.Finished {
+		updateStatus = model.InProgress
+	} else {
+		http.Error(w, "Invalid task status", http.StatusBadRequest)
+		return
+	}
+
+	updateData := bson.M{
+		"member": memberObjectID,
+		"status": updateStatus,
+	}
+
+	err = h.service.UpdateTask(ctx, taskObjectID, updateData)
+	if err != nil {
+		h.logger.Println("Error updating task status:", err)
+		http.Error(w, "Failed to update task status", http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Task status updated successfully"))
 }
