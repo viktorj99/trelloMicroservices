@@ -25,13 +25,14 @@ RUN go build -o projects-service .
 # Create a smaller image for production
 FROM alpine:latest
 
-WORKDIR /root/
+WORKDIR /app/
 
 # Copy the binary file from the previous phase
 COPY --from=builder /app/projects-service .
 
 # Expose the port (adjust if needed)
 EXPOSE 8080
+EXPOSE 8443
 
 # Run the application
 CMD ["./projects-service"]
