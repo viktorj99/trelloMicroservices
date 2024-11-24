@@ -57,7 +57,7 @@ services:
             - "8443:8443" # HTTPS
         environment:
             - USER_SERVICE=https://users-service:8443
-            - PROJECT_SERVICE=https://projects-service:8445 # HTTPS URL projects-service-a
+            - PROJECT_SERVICE=https://projects-service:8443 # HTTPS URL projects-service-a
             - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
             - PORT=8443
         networks:
@@ -90,6 +90,8 @@ services:
             dockerfile: Dockerfile
         ports:
             - "5173:5173"
+        volumes:
+            - ./certificates:/app/certificates
         env_file:
             - ./Frontend/.env
         networks:
