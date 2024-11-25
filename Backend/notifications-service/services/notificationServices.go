@@ -19,12 +19,12 @@ func NewNotificationService(repo *repositories.NotificationRepository) *Notifica
 }
 
 // CreateNotification creates a new notification
-func (service *NotificationService) CreateNotification(userID gocql.UUID, message string) error {
+func (service *NotificationService) CreateNotification(userID string, notificationID gocql.UUID, message string) error {
 	now := time.Now()
 
 	notification := model.Notification{
 		UserID:         userID,
-		NotificationID: gocql.TimeUUID(),      // Generate unique UUID
+		NotificationID: notificationID,        // Generate unique UUID
 		YearMonth:      now.Format("2006-01"), // Format time as "YYYY-MM"
 		CreatedAt:      now,
 		Message:        message,
@@ -35,6 +35,6 @@ func (service *NotificationService) CreateNotification(userID gocql.UUID, messag
 }
 
 // GetNotifications gets all notifications for a user in a specific month
-func (service *NotificationService) GetNotifications(userID gocql.UUID, yearMonth string) ([]model.Notification, error) {
+func (service *NotificationService) GetNotifications(userID string, yearMonth string) ([]model.Notification, error) {
 	return service.repo.GetNotificationsByMonth(userID, yearMonth)
 }

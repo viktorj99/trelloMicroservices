@@ -38,14 +38,13 @@ func (h *NotificationHandler) NotifyMembersHandler(w http.ResponseWriter, r *htt
 		http.Error(w, "Project name and user IDs are required", http.StatusBadRequest)
 		return
 	}
-
 	// Process each user ID and create a notification
-	for _, id := range req.UserIDs {
-		// Convert string ID to gocql.UUID
-		userID, err := gocql.ParseUUID(id)
+	for _, userID := range req.UserIDs {
+		// Generate a new UUID for the notification ID
+		notificationID, err := gocql.RandomUUID()
 		if err != nil {
-			log.Printf("Invalid UUID for user: %s", id)
-			http.Error(w, "Invalid user ID format", http.StatusBadRequest)
+			log.Printf("Failed to generate notification ID: %v", err)
+			http.Error(w, "Failed to create notification ID", http.StatusInternalServerError)
 			return
 		}
 
@@ -53,7 +52,7 @@ func (h *NotificationHandler) NotifyMembersHandler(w http.ResponseWriter, r *htt
 		message := "You have been added to the project: " + req.ProjectName
 
 		// Save the notification using the service
-		if err := h.notificationService.CreateNotification(userID, message); err != nil {
+		if err := h.notificationService.CreateNotification(userID, notificationID, message); err != nil {
 			log.Printf("Failed to create notification for user: %s, error: %v", userID, err)
 			http.Error(w, "Failed to create notifications", http.StatusInternalServerError)
 			return

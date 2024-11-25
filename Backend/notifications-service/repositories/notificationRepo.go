@@ -17,7 +17,7 @@ func NewNotificationRepository(session *gocql.Session) *NotificationRepository {
 
 // SaveNotification saves a notification to Cassandra
 func (repo *NotificationRepository) SaveNotification(notification model.Notification) error {
-	query := `INSERT INTO notifications_by_month (user_id, notification_id, year_month, created_at, message, is_read)
+	query := `INSERT INTO trello.notifications_by_month (user_id, notification_id, year_month, created_at, message, is_read)
 		VALUES (?, ?, ?, ?, ?, ?)`
 
 	if err := repo.session.Query(query,
@@ -34,10 +34,10 @@ func (repo *NotificationRepository) SaveNotification(notification model.Notifica
 }
 
 // GetNotificationsByMonth retrieves all notifications for a user in a given month
-func (repo *NotificationRepository) GetNotificationsByMonth(userID gocql.UUID, yearMonth string) ([]model.Notification, error) {
+func (repo *NotificationRepository) GetNotificationsByMonth(userID string, yearMonth string) ([]model.Notification, error) {
 	var notifications []model.Notification
 	query := `SELECT user_id, notification_id, year_month, created_at, message, is_read
-		FROM notifications_by_month WHERE user_id = ? AND year_month = ?`
+		FROM trello.notifications_by_month WHERE user_id = ? AND year_month = ?`
 
 	iter := repo.session.Query(query, userID, yearMonth).Iter()
 	var notification model.Notification
@@ -47,6 +47,10 @@ func (repo *NotificationRepository) GetNotificationsByMonth(userID gocql.UUID, y
 
 	if err := iter.Close(); err != nil {
 		return nil, err
+	}
+
+	if len(notifications) == 0 {
+		return []model.Notification{}, nil
 	}
 
 	return notifications, nil
