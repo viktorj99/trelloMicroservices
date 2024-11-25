@@ -49,6 +49,7 @@ const CreateProjectForm: React.FC = () => {
 		}
 
 		const selectedManager: User = {
+			id: tokenData.id,
 			username: tokenData.username,
 			role: Role.Manager,
 		};

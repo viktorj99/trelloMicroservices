@@ -5,24 +5,11 @@ import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
 import { User } from '../entities/models/User';
 import { useState, useEffect } from 'react';
 import { Role } from '../entities/models/Role';
-import { createTask, getTasksByProjectId, assignMemberToTask } from '../services/taskService';
+import { createTask, getTasksByProjectId, assignMemberToTask, toggleTaskStatus } from '../services/taskService';
 import { Task } from '../entities/models/Task';
+import { getTokenData } from '../utils/authHelpers';
+import { getAllUserMembers } from '../services/userService';
 const { Option } = Select;
-
-const users: User[] = [
-  {
-    username: 'john_doe',
-    role: Role.Member,
-  },
-  {
-    username: 'jane_smith',
-    role: Role.Member,
-  },
-  {
-    username: 'aliceUZemljiCuda',
-    role: Role.Member,
-  },
-];
 
 const SingleProject = () => {
   const { id } = useParams<{ id: string }>();
@@ -33,10 +20,19 @@ const SingleProject = () => {
   const [taskForm] = Form.useForm();
   const [tasks, setTasks] = useState<Task[]>([]);
 
+  const [userRole, setUserRole] = useState<Role | null>(null); 
+  const [userId, setUserId] = useState<string | null>(null);
+
 
   const { data: project, isLoading, error } = useQuery({
     queryKey: ['project', id],
     queryFn: () => getProject(id!),
+  });
+
+
+  const { data: users, isLoading: usersLoading } = useQuery<User[]>({
+    queryKey: ['users'],
+    queryFn: getAllUserMembers,
   });
 
 
@@ -46,6 +42,10 @@ const SingleProject = () => {
         .then((tasks) => setTasks(tasks))  
         .catch(console.error);
     }
+
+    const tokenPayload = getTokenData(); 
+    setUserRole(tokenPayload.role);
+    setUserId(tokenPayload.id);
   }, [id]);
 
   const queryClient = useQueryClient();
@@ -68,9 +68,17 @@ const SingleProject = () => {
   });
 
   const addMutation = useMutation({
-    mutationFn: (username: string) => {
-      const newUser = users.find((user) => user.username === username);
-      return addMember(newUser!, project?.members || [], id!);
+    mutationFn: (userId: string) => {
+      const userToAdd = users?.find((user) => user.id === userId);
+      if (!userToAdd) {
+        throw new Error('User not found');
+      }
+      const newMember = {
+        id: userToAdd.id,
+        username: userToAdd.username,
+        role: userToAdd.role,
+      };
+      return addMember(newMember, project?.members || [], id!);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', id] });
@@ -87,7 +95,6 @@ const SingleProject = () => {
       });
     },
   });
-
   const taskMutation = useMutation({
     mutationFn: createTask,
     onSuccess: () => {
@@ -124,7 +131,31 @@ const SingleProject = () => {
     }
   };
 
-  if (isLoading) {
+  const toggleStatusMutation = useMutation({
+    mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
+      toggleTaskStatus(taskId, memberId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      notification.success({
+        message: 'Success',
+        description: 'Task status updated successfully!',
+      });
+    },
+    onError: (error: unknown) => {
+      notification.error({
+        message: 'Error',
+        description: `Task status update failed: ${(error as Error).message}`,
+      });
+    },
+  });
+
+  const handleToggleTaskStatus = (taskId: string) => {
+    if (userId) {
+      toggleStatusMutation.mutate({ taskId, memberId: userId });
+    }
+  };
+
+  if (isLoading || usersLoading) {
     return <p>Loading project data...</p>;
   }
 
@@ -158,13 +189,16 @@ const SingleProject = () => {
       <p>Max Members: {project.maxMembers}</p>
       <p>Min Members: {project.minMembers}</p>
 
-      <Button type='primary' onClick={() => setIsModalVisible(true)}>
-        Add Member
-      </Button>
-
-      <Button type='primary' onClick={() => setIsTaskModalVisible(true)} style={{ marginLeft: 16 }}>
-        Create Task
-      </Button>
+      {userRole === Role.Manager && (
+        <>
+          <Button type='primary' onClick={() => setIsModalVisible(true)}>
+            Add Member
+          </Button>
+          <Button type='primary' onClick={() => setIsTaskModalVisible(true)} style={{ marginLeft: 16 }}>
+            Create Task
+          </Button>
+        </>
+      )}
 
       {/* Modal for adding a member */}
       <Modal
@@ -178,8 +212,8 @@ const SingleProject = () => {
           style={{ width: '100%' }}
           onChange={(value) => setSelectedUser(value)}
         >
-          {users.map((user) => (
-            <Option key={user.username} value={user.username}>
+          {users?.map((user) => (
+            <Option key={user.id} value={user.id}>
               {user.username}
             </Option>
           ))}
@@ -231,11 +265,22 @@ const SingleProject = () => {
         <Table.Column title='Description' dataIndex='description' />
         <Table.Column title='Status' dataIndex='status' />
         <Table.Column
-          title='Assign Member'
+          title={userRole === Role.Member ? 'Change Status' : 'Assign Member'}
           render={(_, task: any) => {
-            if (task.status === 'PENDING') {
+            if (userRole === Role.Member && task.member === userId) {
               return (
-                <Select
+                <Button
+                  onClick={() => handleToggleTaskStatus(task.id)}
+                >
+                  {task.status === 'IN_PROGRESS' ? 'Mark Finished' : 'Mark In Progress'}
+                </Button>
+              );
+            } else if (userRole === Role.Manager) {
+              if (task.status !== 'PENDING') {
+                return <span>Assigned</span>;
+              } else {
+                return (
+                  <Select
                   style={{ width: 200 }}
                   onChange={(value) => handleAssignMemberToTask(task.id!, value)}
                 >
@@ -245,7 +290,8 @@ const SingleProject = () => {
                     </Option>
                   ))}
                 </Select>
-              );
+                );
+              }
             }
             return <span>Assigned</span>;
           }}

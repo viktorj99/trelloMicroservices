@@ -22,6 +22,7 @@ var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]
 var validDomains = []string{"gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "example.com"}
 
 type Claims struct {
+	ID       string `json:"id"`
 	Username string `json:"username"`
 	Role     string `json:"role"`
 	jwt.StandardClaims
@@ -115,7 +116,7 @@ func Login(username, password string) (string, error) {
 		return "", errors.New("invalid password")
 	}
 
-	token, err := GenerateJWTToken(user.Username, user.Role)
+	token, err := GenerateJWTToken(user.ID, user.Username, user.Role)
 	if err != nil {
 		return "", err
 	}
@@ -123,7 +124,7 @@ func Login(username, password string) (string, error) {
 	return token, nil
 }
 
-func GenerateJWTToken(username, role string) (string, error) {
+func GenerateJWTToken(id, username, role string) (string, error) {
 	if role != model.RoleManager && role != model.RoleMember {
 		return "", errors.New("invalid role")
 	}
@@ -131,6 +132,7 @@ func GenerateJWTToken(username, role string) (string, error) {
 	expirationTime := time.Now().Add(24 * time.Hour)
 
 	claims := &Claims{
+		ID:       id,
 		Username: username,
 		Role:     role,
 		StandardClaims: jwt.StandardClaims{
