@@ -32,7 +32,7 @@ export const createTask = async (task: CreateTask) => {
 export const getTasksByProjectId = async (projectId: string): Promise<Task[]> => {
     try {
         const token = getToken();  
-        const response = await axios.get(`${BASE_URL}/project/${projectId}`, {
+        const response = await axios.get(`${BASE_URL}/${projectId}/tasks`, {
             headers: {
                 Authorization: `Bearer ${token}`, 
             },
@@ -55,7 +55,7 @@ export const getTasksByProjectId = async (projectId: string): Promise<Task[]> =>
 export const assignMemberToTask = async (taskId: string, memberId: string) => {
     try {
         const token = getToken();  
-        const response = await axios.post(`${BASE_URL}/${taskId}/assign/${memberId}`, {}, {
+        const response = await axios.put(`${BASE_URL}/${taskId}/assign/${memberId}`, {}, {
             headers: {
                 Authorization: `Bearer ${token}`, 
             },

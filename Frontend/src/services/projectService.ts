@@ -62,10 +62,15 @@ export const handleDeleteMember = async (username: string, members: User[], id: 
     const payload = {
         members: newMembers,
     };
-    console.log(newMembers);
+
     try {
+        const token = getToken();
         const url = `${BASE_URL}/${id}/update`;
-        await axios.put(url, payload);
+        await axios.put(url, payload, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
     } catch (error) {
         if (axios.isAxiosError(error)) {
             console.error('Error response:', error.response?.data);
@@ -85,9 +90,15 @@ export const addMember = async (newMember: User, members: User[], id: string) =>
     const payload = {
         members: updatedMembers,
     };
+
     try {
+        const token = getToken();
         const url = `${BASE_URL}/${id}/update`;
-        await axios.put(url, payload);
+        await axios.put(url, payload, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
     } catch (error) {
         if (axios.isAxiosError(error)) {
             console.error('Error response:', error.response?.data);

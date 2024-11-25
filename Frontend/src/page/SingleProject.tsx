@@ -33,17 +33,17 @@ const SingleProject = () => {
   const [taskForm] = Form.useForm();
   const [tasks, setTasks] = useState<Task[]>([]);
 
-  // Fetch project data
+
   const { data: project, isLoading, error } = useQuery({
     queryKey: ['project', id],
     queryFn: () => getProject(id!),
   });
 
-  // Fetch tasks associated with the project
+
   useEffect(() => {
     if (id) {
       getTasksByProjectId(id)
-        .then((tasks) => setTasks(tasks))  // TypeScript now knows tasks is of type Task[]
+        .then((tasks) => setTasks(tasks))  
         .catch(console.error);
     }
   }, [id]);
