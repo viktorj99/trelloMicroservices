@@ -42,53 +42,62 @@ const CreateProjectForm: React.FC = () => {
 	const onFinish = (values: CreateProject) => {
 		const tokenData = getTokenData();
 		if (!tokenData || tokenData.role !== 'Manager') {
-			notification.error({
-				message: 'Error',
-				description: 'Only managers can create projects.',
-			});
-			return;
+		  notification.error({
+			message: 'Error',
+			description: 'Only managers can create projects.',
+		  });
+		  return;
 		}
-
+	  
 		const selectedManager: User = {
-			username: tokenData.username,
-			role: Role.Manager,
+		  username: tokenData.username,
+		  role: Role.Manager,
 		};
-
-		const selectedMembers: User[] = (values.members || []).map((memberUsername: string) => ({
-			username: memberUsername,
+	  
+		const selectedMembers: User[] = (values.members || []).map((memberJson: string) => {
+		  const member = JSON.parse(memberJson);
+		  return {
+			id: member.id,
+			username: member.username,
 			role: Role.Member,
-		}));
-
-		mutation.mutate({
+		  };
+		});
+	  
+		mutation.mutate(
+		  {
 			...values,
 			minMembers: Number(values.minMembers),
 			maxMembers: Number(values.maxMembers),
 			expectedEndDate: moment(values.expectedEndDate).format('YYYY-MM-DD'),
 			manager: selectedManager,
 			members: selectedMembers,
-		}, {
+		  },
+		  {
 			onSuccess: () => {
-				// On successful project creation, notify members
-				const memberIds = selectedMembers
-					.map((member) => member.id)
-					.filter((id): id is string  => !!id);
-					notificationService.notifyMembers(values.name, memberIds)
-					.then(() => {
-						notification.success({
-							message: 'Success',
-							description: 'Members notified successfully!',
-						});
-					})
-					.catch((error) => {
-						notification.error({
-							message: 'Error',
-							description: `Failed to notify members: ${error.message}`,
-						});
-					});
-			}
-		});
-		
+			  // Notify members by their IDs
+			  const memberIds = selectedMembers
+				.map((member) => member.id)
+				.filter((id): id is string => !!id);
+	  
+			  notificationService
+				.notifyMembers(values.name, memberIds)
+				.then(() => {
+				  notification.success({
+					message: 'Success',
+					description: 'Members notified successfully!',
+				  });
+				})
+				.catch((error) => {
+				  notification.error({
+					message: 'Error',
+					description: `Failed to notify members: ${error.message}`,
+				  });
+				});
+			},
+		  }
+		);
 	};
+	  
 
 	// const users: User[] = [
 	// 	{
@@ -150,9 +159,9 @@ const CreateProjectForm: React.FC = () => {
 			</Form.Item>
 
 			<Form.Item label='Members' name='members'>
-				<Select mode='multiple' placeholder='Select members'>
+				<Select mode='multiple' placeholder='Select members' optionLabelProp="label">
 					{users?.map((user) => (
-						<Option key={user.username} value={user.username}>
+						<Option key={user.id} value={JSON.stringify(user)} label={user.username}>
 							{user.username}
 						</Option>
 					))}

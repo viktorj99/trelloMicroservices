@@ -37,7 +37,7 @@ func main() {
 	})))
 
 	http.Handle("/api/notifications/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		proxyToService(w, r, taskService)
+		proxyToService(w, r, notificationService)
 	})))
 
 	// Start the API Gateway HTTP server

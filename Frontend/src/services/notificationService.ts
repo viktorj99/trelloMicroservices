@@ -3,14 +3,16 @@ import axios from "axios";
 const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/notifications`;
 
 // NotifyMembers function to notify added members
-export const notifyMembers = async (projectName: string, memberIds: string[]) => {
+export const notifyMembers = async (project_name: string, user_ids: string[]) => {
     try {
         const url = `${BASE_URL}/project/add`;
 
+        console.log('Sending:', { project_name, user_ids });
+
         // Send the project name and member IDs to the backend
         const response = await axios.post(url, {
-            projectName,
-            memberIds
+            project_name,
+            user_ids
         });
 
         return response.data;

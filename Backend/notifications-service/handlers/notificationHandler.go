@@ -26,12 +26,16 @@ type NotificationRequest struct {
 
 // NotifyMembersHandler handles the creation of notifications for multiple members
 func (h *NotificationHandler) NotifyMembersHandler(w http.ResponseWriter, r *http.Request) {
+
 	// Parse the request body
 	var req NotificationRequest
+
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request body", http.StatusBadRequest)
 		return
 	}
+
+	log.Printf("Received request: ProjectName: %s, UserIDs: %v", req.ProjectName, req.UserIDs)
 
 	// Check if project name and user IDs are provided
 	if req.ProjectName == "" || len(req.UserIDs) == 0 {
@@ -62,4 +66,52 @@ func (h *NotificationHandler) NotifyMembersHandler(w http.ResponseWriter, r *htt
 	// Return a success response
 	w.WriteHeader(http.StatusCreated)
 	w.Write([]byte("Notifications created successfully"))
+}
+
+// GetNotificationsByMonthHandler handles the retrieval of notifications for a user in a specific month
+func (h *NotificationHandler) GetNotificationsByMonthHandler(w http.ResponseWriter, r *http.Request) {
+	// Extract userID and yearMonth from the query parameters
+	userID := r.URL.Query().Get("user_id")
+	yearMonth := r.URL.Query().Get("year_month")
+
+	if userID == "" || yearMonth == "" {
+		http.Error(w, "User ID and Year-Month are required", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch notifications using the service
+	notifications, err := h.notificationService.GetNotifications(userID, yearMonth)
+	if err != nil {
+		log.Printf("Failed to fetch notifications for user: %s, error: %v", userID, err)
+		http.Error(w, "Failed to fetch notifications", http.StatusInternalServerError)
+		return
+	}
+
+	// Return the notifications in JSON format
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(notifications)
+}
+
+// GetAllNotificationsHandler handles the retrieval of all notifications for a user
+func (h *NotificationHandler) GetAllNotificationsHandler(w http.ResponseWriter, r *http.Request) {
+
+	// Extract userID from the query parameters
+	userID := r.URL.Query().Get("user_id")
+
+	if userID == "" {
+		http.Error(w, "User ID is required", http.StatusBadRequest)
+		return
+	}
+
+	// Fetch all notifications for the user
+	notifications, err := h.notificationService.GetAllNotifications(userID)
+	if err != nil {
+		log.Printf("Failed to fetch notifications for user: %s, error: %v", userID, err)
+		http.Error(w, "Failed to fetch notifications", http.StatusInternalServerError)
+		return
+	}
+
+	// Return the notifications in JSON format
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(notifications)
 }

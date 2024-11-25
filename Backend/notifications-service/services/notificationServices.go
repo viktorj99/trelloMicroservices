@@ -38,3 +38,8 @@ func (service *NotificationService) CreateNotification(userID string, notificati
 func (service *NotificationService) GetNotifications(userID string, yearMonth string) ([]model.Notification, error) {
 	return service.repo.GetNotificationsByMonth(userID, yearMonth)
 }
+
+// GetAllNotifications retrieves all notifications for a user
+func (service *NotificationService) GetAllNotifications(userID string) ([]model.Notification, error) {
+	return service.repo.GetAllNotifications(userID)
+}
