@@ -49,6 +49,17 @@ services:
             - ./Backend/notifications-service/.env
         networks:
             - app-network
+        
+        environment:
+            - PORT=8080
+            # NoSQL: environment variable holding connection URI for Cassandra database
+            - CASS_DB=cassandra:9042
+            # NoSQL: Extremely important! Cassandra takes a lot of time to start!
+            # If we don't wait for it to fully initialize we will get exceptions and will not be able to connect!
+
+        depends_on:
+            cassandra:
+                condition: service_healthy
 
     cassandra:
         image: cassandra
@@ -60,9 +71,15 @@ services:
             test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
             interval: 15s
             timeout: 5s
-            retries: 15
+            retries: 30
+        networks:
+            - app-network
+        command: [
+            "sh", "-c", "until cqlsh -e 'describe cluster'; do sleep 5; done && cqlsh -f /init-cassandra.cql"
+            ]
         volumes:
-        - cass_store:/var/lib/cassandra/data
+            - cass_store:/var/lib/cassandra/data
+            - ./Backend/notifications-service/init-cassandra.cql:/init-cassandra.cql
 
     api-gateway:
         build:

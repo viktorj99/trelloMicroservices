@@ -5,6 +5,7 @@ go 1.22.1
 require github.com/gocql/gocql v1.7.0
 
 require (
+	github.com/felixge/httpsnoop v1.0.3 // indirect
 	github.com/klauspost/compress v1.17.2 // indirect
 	github.com/nats-io/nkeys v0.4.7 // indirect
 	github.com/nats-io/nuid v1.0.1 // indirect
@@ -14,6 +15,7 @@ require (
 
 require (
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/gorilla/handlers v1.5.2
 	github.com/gorilla/mux v1.8.1
 	github.com/hailocab/go-hostpool v0.0.0-20160125115350-e80d13ce29ed // indirect
 	github.com/nats-io/nats.go v1.37.0

@@ -6,14 +6,18 @@ import (
 	"notifications-service/handlers"
 	"notifications-service/repositories"
 	service "notifications-service/services"
+	"os"
+	"time"
 
 	"github.com/gocql/gocql"
+	gorillaHandlers "github.com/gorilla/handlers"
 	"github.com/gorilla/mux"
 )
 
 func main() {
+	db := os.Getenv("CASS_DB")
 	// Create Cassandra session
-	cluster := gocql.NewCluster("127.0.0.1")
+	cluster := gocql.NewCluster(db)
 	cluster.Keyspace = "trello"
 	cluster.Consistency = gocql.Quorum
 	session, err := cluster.CreateSession()
@@ -58,6 +62,21 @@ func main() {
 	router := mux.NewRouter()
 	router.HandleFunc("/notifications/project/add", notificationHandler.NotifyMembersHandler).Methods("POST")
 
+	cors := gorillaHandlers.CORS(gorillaHandlers.AllowedOrigins([]string{"*"}))
+
 	// Start server
-	http.ListenAndServe(":8080", router)
+	server := http.Server{
+		Addr:         ":8080",
+		Handler:      cors(router),
+		IdleTimeout:  120 * time.Second,
+		ReadTimeout:  1 * time.Second,
+		WriteTimeout: 1 * time.Second,
+	}
+
+	go func() {
+		err := server.ListenAndServe()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}()
 }
