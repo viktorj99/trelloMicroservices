@@ -21,7 +21,7 @@ const CreateProjectForm: React.FC = () => {
 			queryClient.invalidateQueries({ queryKey: ['project'] });
 			notification.success({
 				message: 'Success',
-				description: 'Projects created successfully!',
+				description: 'Project created successfully!',
 			});
 			form.resetFields();
 		},
@@ -49,14 +49,17 @@ const CreateProjectForm: React.FC = () => {
 		}
 
 		const selectedManager: User = {
+			id: tokenData.id,
 			username: tokenData.username,
 			role: Role.Manager,
 		};
 
-		const selectedMembers: User[] = (values.members || []).map((memberUsername: string) => ({
-			username: memberUsername,
-			role: Role.Member,
-		}));
+		const selectedMembers: User[] = (values.members || []).map((memberId: string) => {
+			const user = users?.find((u) => u.id === memberId);
+			return user
+				? { id: user.id, username: user.username, role: Role.Member }
+				: { id: '', username: '', role: Role.Member }; 
+		});
 
 		mutation.mutate({
 			...values,
@@ -67,21 +70,6 @@ const CreateProjectForm: React.FC = () => {
 			members: selectedMembers,
 		});
 	};
-
-	// const users: User[] = [
-	// 	{
-	// 		username: 'john_doe',
-	// 		role: Role.Member,
-	// 	},
-	// 	{
-	// 		username: 'jane_smith',
-	// 		role: Role.Member,
-	// 	},
-	// 	{
-	// 		username: 'aliceUZemljiCuda',
-	// 		role: Role.Member,
-	// 	},
-	// ];
 
 	return (
 		<Form form={form} layout='vertical' onFinish={onFinish} initialValues={{ role: 'member' }}>
@@ -130,7 +118,7 @@ const CreateProjectForm: React.FC = () => {
 			<Form.Item label='Members' name='members'>
 				<Select mode='multiple' placeholder='Select members'>
 					{users?.map((user) => (
-						<Option key={user.username} value={user.username}>
+						<Option key={user.id} value={user.id}>
 							{user.username}
 						</Option>
 					))}

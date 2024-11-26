@@ -10,6 +10,7 @@ import (
 	"tasks-service/repositories"
 	"tasks-service/services"
 
+	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -47,7 +48,9 @@ func main() {
 	taskService := services.NewTaskService(taskRepo, logger)
 	taskHandler := handlers.NewTaskHandler(taskService, logger)
 
-	http.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {
+	router := mux.NewRouter()
+
+	router.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/tasks/") && len(r.URL.Path) > len("/tasks/") {
 			taskHandler.GetTaskById(w, r)
 		} else {
@@ -55,7 +58,12 @@ func main() {
 		}
 	})
 
-	http.HandleFunc("/tasks/create", taskHandler.CreateTask)
+	router.HandleFunc("/tasks", taskHandler.GetAllTasks).Methods("GET")
+	router.HandleFunc("/tasks/{id}", taskHandler.GetTaskById).Methods("GET")
+	router.HandleFunc("/tasks/{projectId}/tasks", taskHandler.GetTasksByProjectId).Methods("GET")
+	router.HandleFunc("/tasks/create", taskHandler.CreateTask).Methods("POST")
+	router.HandleFunc("/tasks/{taskID}/assign/{memberID}", taskHandler.AssignMemberToTask).Methods("PUT")
+	router.HandleFunc("/tasks/{taskID}/member/{memberID}/toggle-status", taskHandler.ToggleTaskStatus).Methods("POST")
 
 	httpPort := os.Getenv("HTTP_PORT")
 	if httpPort == "" {

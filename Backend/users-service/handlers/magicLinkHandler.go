@@ -35,7 +35,7 @@ func RequestMagicLinkHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := services.GenerateJWTToken(user.Username, user.Role)
+	token, err := services.GenerateJWTToken(user.ID, user.Username, user.Role)
 	if err != nil {
 		http.Error(w, "Failed to generate token", http.StatusInternalServerError)
 		return
@@ -64,7 +64,7 @@ func MagicLoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sessionToken, err := services.GenerateJWTToken(claims.Username, claims.Role)
+	sessionToken, err := services.GenerateJWTToken(claims.ID, claims.Username, claims.Role)
 	if err != nil {
 		http.Error(w, "Failed to generate session token", http.StatusInternalServerError)
 		return

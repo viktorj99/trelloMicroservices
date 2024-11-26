@@ -13,6 +13,7 @@ import (
 )
 
 type Claims struct {
+	ID        string `json:"id"`
 	Username  string `json:"username"`
 	Role      string `json:"role"`
 	ExpiresAt int64  `json:"exp"`

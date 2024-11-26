@@ -16,6 +16,7 @@ import (
 
 // Claims represents the custom claims for the JWT token
 type Claims struct {
+	ID                 string `json:"id"`
 	Username           string `json:"username"`
 	Role               string `json:"role"`
 	ExpiresAt          int64  `json:"exp"`
