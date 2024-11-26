@@ -21,7 +21,7 @@ export const createProject = async (user: DTOCreateProject) => {
             throw new Error(
                 error.response?.data || 'An error occurred while creating the project.'
             );
-        } else {
+        } else {  
             console.error('Unexpected error:', error);
             throw new Error('An unexpected error occurred.');
         }
@@ -111,6 +111,7 @@ export const addMember = async (newMember: User, members: User[], id: string) =>
         }
     }
 };
+
 
 export const getAllProjects = async () => {
     try {

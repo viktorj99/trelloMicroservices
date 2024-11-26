@@ -12,7 +12,7 @@ const MagicLogin: React.FC = () => {
             (async () => {
                 try {
                     const data = await magicLogin(token);
-                    localStorage.setItem('token', data.authToken); 
+                    localStorage.setItem('token', data.authToken);
                     notification.success({
                         message: 'Login Successful',
                         description: 'You are now logged in.',

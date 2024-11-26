@@ -17,7 +17,9 @@ type ProjectHandler struct {
 }
 
 func NewProjectHandler(service *services.ProjectService) *ProjectHandler {
-	return &ProjectHandler{service: service}
+	return &ProjectHandler{
+		service: service,
+	}
 }
 
 func (ph *ProjectHandler) GetAllProjects(w http.ResponseWriter, r *http.Request) {

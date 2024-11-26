@@ -7,6 +7,7 @@ import { createProject } from '../services/projectService';
 import moment from 'moment';
 import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
+import * as notificationService from '../services/notificationService';
 
 const { Option } = Select;
 
@@ -41,35 +42,62 @@ const CreateProjectForm: React.FC = () => {
 	const onFinish = (values: CreateProject) => {
 		const tokenData = getTokenData();
 		if (!tokenData || tokenData.role !== 'Manager') {
-			notification.error({
-				message: 'Error',
-				description: 'Only managers can create projects.',
-			});
-			return;
+		  notification.error({
+			message: 'Error',
+			description: 'Only managers can create projects.',
+		  });
+		  return;
 		}
-
+	  
 		const selectedManager: User = {
-			id: tokenData.id,
-			username: tokenData.username,
-			role: Role.Manager,
+		  username: tokenData.username,
+		  role: Role.Manager,
 		};
-
-		const selectedMembers: User[] = (values.members || []).map((memberId: string) => {
-			const user = users?.find((u) => u.id === memberId);
-			return user
-				? { id: user.id, username: user.username, role: Role.Member }
-				: { id: '', username: '', role: Role.Member }; 
+	  
+		const selectedMembers: User[] = (values.members || []).map((memberJson: string) => {
+		  const member = JSON.parse(memberJson);
+		  return {
+			id: member.id,
+			username: member.username,
+			role: Role.Member,
+		  };
 		});
-
-		mutation.mutate({
+	  
+		mutation.mutate(
+		  {
 			...values,
 			minMembers: Number(values.minMembers),
 			maxMembers: Number(values.maxMembers),
 			expectedEndDate: moment(values.expectedEndDate).format('YYYY-MM-DD'),
 			manager: selectedManager,
 			members: selectedMembers,
-		});
+		  },
+		  {
+			onSuccess: () => {
+			  // Notify members by their IDs
+			  const memberIds = selectedMembers
+				.map((member) => member.id)
+				.filter((id): id is string => !!id);
+	  
+			  notificationService
+				.notifyMembers(values.name, memberIds)
+				.then(() => {
+				  notification.success({
+					message: 'Success',
+					description: 'Members notified successfully!',
+				  });
+				})
+				.catch((error) => {
+				  notification.error({
+					message: 'Error',
+					description: `Failed to notify members: ${error.message}`,
+				  });
+				});
+			},
+		  }
+		);
 	};
+	  
 
 	return (
 		<Form form={form} layout='vertical' onFinish={onFinish} initialValues={{ role: 'member' }}>
@@ -116,9 +144,9 @@ const CreateProjectForm: React.FC = () => {
 			</Form.Item>
 
 			<Form.Item label='Members' name='members'>
-				<Select mode='multiple' placeholder='Select members'>
+				<Select mode='multiple' placeholder='Select members' optionLabelProp="label">
 					{users?.map((user) => (
-						<Option key={user.id} value={user.id}>
+						<Option key={user.id} value={JSON.stringify(user)} label={user.username}>
 							{user.username}
 						</Option>
 					))}

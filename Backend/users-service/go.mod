@@ -53,4 +53,3 @@ require (
 replace users-service => ../users-service
 
 replace pb/userpb => ./pb/userpb
-

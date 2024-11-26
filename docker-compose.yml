@@ -47,6 +47,43 @@ services:
             - app-network
         volumes:
             - ./certificates:/app/certificates 
+            - ./Backend/tasks-service/.env:/app/.env
+    
+    notifications-service:
+        build:
+            context: ./Backend
+            dockerfile: notifications-service/Dockerfile
+        ports:
+            - "8084:8080"
+        env_file:
+            - ./Backend/notifications-service/.env
+        networks:
+            - app-network
+        
+        environment:
+            - PORT=8080
+            # NoSQL: environment variable holding connection URI for Cassandra database
+            - CASS_DB=cassandra:9042
+            # NoSQL: Extremely important! Cassandra takes a lot of time to start!
+            # If we don't wait for it to fully initialize we will get exceptions and will not be able to connect!
+
+        depends_on:
+            cassandra:
+                condition: service_healthy
+
+    cassandra:
+        image: cassandra
+        restart: always
+        ports:
+         - "9042:9042"
+        # Docker healtcheck - checks if database is "alive"
+        healthcheck:
+            test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
+            interval: 15s
+            timeout: 5s
+            retries: 30
+        networks:
+            - app-network
 
     api-gateway:
         build:
@@ -60,6 +97,7 @@ services:
             - PROJECT_SERVICE=https://projects-service:8443 # HTTPS URL projects-service-a
             - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
             - PORT=8443
+            - NOTIFICATION_SERVICE=http://notifications-service:8080
         networks:
             - app-network
         volumes:
@@ -68,6 +106,7 @@ services:
             - users-service
             - projects-service
             - tasks-service
+            - notifications-service
 
     redis:
         image: "redis:latest"
@@ -104,3 +143,7 @@ services:
 networks:
     app-network:
         driver: bridge
+
+
+volumes:
+  cass_store:
