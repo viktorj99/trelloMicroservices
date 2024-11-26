@@ -83,7 +83,7 @@ func main() {
 	}()
 
 	logger.Printf("HTTPS server is starting on port %s...", httpsPort)
-	if err := http.ListenAndServeTLS(":"+httpsPort, "certificates/cert.crt", "certificates/cert.key", nil); err != nil {
+	if err := http.ListenAndServeTLS(":"+httpsPort, "certificates/cert.crt", "certificates/cert.key", router); err != nil {
 		logger.Fatalf("HTTPS server failed to start: %v", err)
 	}
 }
