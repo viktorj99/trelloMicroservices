@@ -93,7 +93,7 @@ func SendPasswordResetEmail(email string, code string) error {
 }
 
 func SendMagicLinkEmail(email, token string) error {
-	link := fmt.Sprintf("http://localhost:5173/magic-login?token=%s", token)
+	link := fmt.Sprintf("https://localhost:5173/magic-login?token=%s", token)
 	subject := "Magic Link Login"
 	body := fmt.Sprintf(`
     <html>
