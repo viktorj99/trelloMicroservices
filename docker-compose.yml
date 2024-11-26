@@ -55,10 +55,14 @@ services:
             dockerfile: notifications-service/Dockerfile
         ports:
             - "8084:8080"
+            - "8447:8443" # HTTPS
         env_file:
             - ./Backend/notifications-service/.env
         networks:
             - app-network
+
+        volumes:
+            - ./certificates:/app/certificates 
         
         environment:
             - PORT=8080
@@ -96,8 +100,9 @@ services:
             - USER_SERVICE=https://users-service:8443
             - PROJECT_SERVICE=https://projects-service:8443 # HTTPS URL projects-service-a
             - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
+            - NOTIFICATION_SERVICE=https://notifications-service:8443
             - PORT=8443
-            - NOTIFICATION_SERVICE=http://notifications-service:8080
+
         networks:
             - app-network
         volumes:
@@ -139,6 +144,7 @@ services:
             - users-service
             - projects-service
             - tasks-service
+            - notifications-service
 
 networks:
     app-network:

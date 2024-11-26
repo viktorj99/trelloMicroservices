@@ -64,30 +64,28 @@ func main() {
 	router.HandleFunc("/notifications/by_month", notificationHandler.GetNotificationsByMonthHandler).Methods("GET")
 	router.HandleFunc("/notifications/user", notificationHandler.GetAllNotificationsHandler).Methods("GET")
 
-	// Start server
-	// server := http.Server{
-	// 	Addr:         ":8080",
-	// 	IdleTimeout:  120 * time.Second,
-	// 	ReadTimeout:  1 * time.Second,
-	// 	WriteTimeout: 1 * time.Second,
-	// }
-
-	// go func() {
-	// 	err := server.ListenAndServe()
-	// 	if err != nil {
-	// 		log.Fatal(err)
-	// 	}
-	// }()
-
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8084"
-	}
-	logger.Printf("Server is starting on port %s", port)
-
-	err = http.ListenAndServe(":"+port, router)
-	if err != nil {
-		logger.Fatal("Server failed to start: ", err)
+	// HTTP and HTTPS ports
+	httpPort := os.Getenv("HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "8084" // Default HTTP port
 	}
 
+	httpsPort := os.Getenv("HTTPS_PORT")
+	if httpsPort == "" {
+		httpsPort = "8443" // Default HTTPS port
+	}
+
+	// Start HTTP server in a goroutine
+	go func() {
+		logger.Printf("HTTP server is starting on port %s...", httpPort)
+		if err := http.ListenAndServe(":"+httpPort, nil); err != nil {
+			logger.Fatalf("HTTP server failed to start: %v", err)
+		}
+	}()
+
+	// Start HTTPS server
+	logger.Printf("HTTPS server is starting on port %s...", httpsPort)
+	if err := http.ListenAndServeTLS(":"+httpsPort, "certificates/cert.crt", "certificates/cert.key", router); err != nil {
+		logger.Fatalf("HTTPS server failed to start: %v", err)
+	}
 }
