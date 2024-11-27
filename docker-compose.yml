@@ -12,11 +12,13 @@ services:
             - PORT=8080
             - REDIS_HOST=redis
             - REDIS_PORT=6379
-            #- CONSUL_HTTP_ADDR=consul:8500  # Add Consul address to env
+            - CONSUL_DB=consul
+            - CONSUL_DB_PORT=8500
         networks:
             - app-network
         volumes:
             - ./certificates:/app/certificates 
+            - ./Backend/users-service/config/common_passwords.txt:/app/config/common_passwords.txt
 
     projects-service:
         build:
@@ -120,13 +122,15 @@ services:
         networks:
             - app-network
 
-    # consul:
-    #     image: "consul:1.14.2"
-    #     ports:
-    #         - "8500:8500"
-    #     networks:
-    #         - app-network
-    #     command: "agent -dev -client=0.0.0.0"  # Run in dev mode to allow easy access
+    consul:
+        image: hashicorp/consul:latest
+        ports:
+        - "8500:8500"
+        command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+        volumes:
+        - ./consul_store:/consul/data
+        networks:
+        - app-network
     
     frontend:
         build:
