@@ -23,13 +23,14 @@ RUN go build -o notifications-service .
 FROM alpine:latest
 
 # Set working directory in the final container
-WORKDIR /root/
+WORKDIR /app/
 
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/notifications-service .
 
 # Expose the application port (adjust if necessary)
 EXPOSE 8080
+EXPOSE 8443
 
 # Set the entry point for the container
 CMD ["./notifications-service"]

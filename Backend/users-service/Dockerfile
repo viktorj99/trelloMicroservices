@@ -27,6 +27,7 @@ COPY --from=builder /app/users-service /app/users-service
 COPY --from=builder /app/.env /app/.env
 
 EXPOSE 8080
+EXPOSE 8443
 EXPOSE 50051
 
 # **Use relative path in ENTRYPOINT**

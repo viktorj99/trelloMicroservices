@@ -22,7 +22,7 @@ const CreateProjectForm: React.FC = () => {
 			queryClient.invalidateQueries({ queryKey: ['project'] });
 			notification.success({
 				message: 'Success',
-				description: 'Projects created successfully!',
+				description: 'Project created successfully!',
 			});
 			form.resetFields();
 		},
@@ -98,21 +98,6 @@ const CreateProjectForm: React.FC = () => {
 		);
 	};
 	  
-
-	// const users: User[] = [
-	// 	{
-	// 		username: 'john_doe',
-	// 		role: Role.Member,
-	// 	},
-	// 	{
-	// 		username: 'jane_smith',
-	// 		role: Role.Member,
-	// 	},
-	// 	{
-	// 		username: 'aliceUZemljiCuda',
-	// 		role: Role.Member,
-	// 	},
-	// ];
 
 	return (
 		<Form form={form} layout='vertical' onFinish={onFinish} initialValues={{ role: 'member' }}>

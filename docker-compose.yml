@@ -5,6 +5,7 @@ services:
             dockerfile: users-service/Dockerfile
         ports:
             - "8081:8080"
+            - "8444:8443" # HTTPS
             - "50051:50051"
         environment:
             - MONGO_DB_URI=mongodb://host.docker.internal:27017
@@ -14,6 +15,8 @@ services:
             #- CONSUL_HTTP_ADDR=consul:8500  # Add Consul address to env
         networks:
             - app-network
+        volumes:
+            - ./certificates:/app/certificates 
 
     projects-service:
         build:
@@ -21,22 +24,29 @@ services:
             dockerfile: projects-service/Dockerfile
         ports:
             - "8082:8080"
-        environment:
-            - MONGO_DB_URI=mongodb://host.docker.internal:27017
-            - PORT=8080
-        networks:
-            - app-network
-
-    tasks-service:
-        build: ./Backend/tasks-service
-        ports:
-            - "8083:8080"
+            - "8445:8443" # HTTPS
         environment:
             - MONGO_DB_URI=mongodb://host.docker.internal:27017
             - PORT=8080
         networks:
             - app-network
         volumes:
+            - ./certificates:/app/certificates 
+
+    tasks-service:
+        build:
+            context: ./Backend
+            dockerfile: tasks-service/Dockerfile
+        ports:
+            - "8083:8080"
+            - "8446:8443" # HTTPS
+        environment:
+            - MONGO_DB_URI=mongodb://host.docker.internal:27017
+            - PORT=8080
+        networks:
+            - app-network
+        volumes:
+            - ./certificates:/app/certificates 
             - ./Backend/tasks-service/.env:/app/.env
     
     notifications-service:
@@ -45,10 +55,14 @@ services:
             dockerfile: notifications-service/Dockerfile
         ports:
             - "8084:8080"
+            - "8447:8443" # HTTPS
         env_file:
             - ./Backend/notifications-service/.env
         networks:
             - app-network
+
+        volumes:
+            - ./certificates:/app/certificates 
         
         environment:
             - PORT=8080
@@ -81,16 +95,18 @@ services:
             dockerfile: Dockerfile
         ports:
             - "8080:8080"
+            - "8443:8443" # HTTPS
         environment:
-            - USER_SERVICE=http://users-service:8080
-            - PROJECT_SERVICE=http://projects-service:8080
-            - TASK_SERVICE=http://tasks-service:8080
-            - NOTIFICATION_SERVICE=http://notifications-service:8080
-            - PORT=8080
+            - USER_SERVICE=https://users-service:8443
+            - PROJECT_SERVICE=https://projects-service:8443 # HTTPS URL projects-service-a
+            - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
+            - NOTIFICATION_SERVICE=https://notifications-service:8443
+            - PORT=8443
+
         networks:
             - app-network
         volumes:
-            - ./Backend/api-gateway/.env:/app/.env
+            - ./certificates:/app/certificates
         depends_on:
             - users-service
             - projects-service
@@ -118,6 +134,8 @@ services:
             dockerfile: Dockerfile
         ports:
             - "5173:5173"
+        volumes:
+            - ./certificates:/app/certificates
         env_file:
             - ./Frontend/.env
         networks:
@@ -126,6 +144,7 @@ services:
             - users-service
             - projects-service
             - tasks-service
+            - notifications-service
 
 networks:
     app-network:

@@ -11,13 +11,25 @@ import (
 func RunServer(router *mux.Router, logger *log.Logger) {
 	http.Handle("/", router)
 
-	port := os.Getenv("PORT")
-	if port == "" {
-		port = "8081"
+	httpPort := os.Getenv("HTTP_PORT")
+	if httpPort == "" {
+		httpPort = "8080"
 	}
-	logger.Printf("Server is starting on port %s", port)
-	err := http.ListenAndServe(":"+port, nil)
-	if err != nil {
-		logger.Fatal("Server failed to start: ", err)
+
+	httpsPort := os.Getenv("HTTPS_PORT")
+	if httpsPort == "" {
+		httpsPort = "8443"
+	}
+
+	go func() {
+		logger.Printf("HTTP server is starting on port %s...", httpPort)
+		if err := http.ListenAndServe(":"+httpPort, nil); err != nil {
+			logger.Fatalf("HTTP server failed: %v", err)
+		}
+	}()
+
+	logger.Printf("HTTPS server is starting on port %s...", httpsPort)
+	if err := http.ListenAndServeTLS(":"+httpsPort, "certificates/cert.crt", "certificates/cert.key", nil); err != nil {
+		logger.Fatalf("HTTPS server failed: %v", err)
 	}
 }

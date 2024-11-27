@@ -8,6 +8,11 @@ import (
 )
 
 func StartHTTPServer() {
+	go func() {
+		log.Println("HTTP server is running on port 8080...")
+		log.Fatal(http.ListenAndServe(":8080", nil))
+	}()
+
 	http.HandleFunc("/users/register", handlers.RegisterUser)
 	http.HandleFunc("/users/login", handlers.LoginUser)
 	http.HandleFunc("/users/members", handlers.GetAllUserMembers)
@@ -27,6 +32,6 @@ func StartHTTPServer() {
 		}
 	})
 
-	log.Println("HTTP server is running on port 8079...")
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Println("HTTPS server is running on port 8443...")
+	log.Fatal(http.ListenAndServeTLS(":8443", "certificates/cert.crt", "certificates/cert.key", nil)) // HTTPS server pokretanje
 }

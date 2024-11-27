@@ -24,6 +24,6 @@ func main() {
 	go services.StartKeyExpirationListener()
 
 	// Pokretanje HTTP i gRPC servera paralelno
-	go helpers.StartHTTPServer() // HTTP server na portu 8080
+	go helpers.StartHTTPServer() // Pokrenuti i HTTP i HTTPS
 	helpers.StartGRPCServer()    // gRPC server na portu 50051
 }

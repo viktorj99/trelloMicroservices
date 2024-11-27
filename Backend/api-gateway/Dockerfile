@@ -19,13 +19,14 @@ RUN go build -o api-gateway .
 # Create a smaller image for production
 FROM alpine:latest
 
-WORKDIR /root/
+WORKDIR /app
 
 # Copy the binary file from the builder stage
 COPY --from=builder /app/api-gateway .
 
 # Expose the port (adjust if needed)
 EXPOSE 8080
+EXPOSE 8443
 
 # Run the application
 CMD ["./api-gateway"]
