@@ -22,6 +22,11 @@ export const getToken = () => {
   return null
 };
 
+export const removeToken = () => {
+  localStorage.removeItem('token'); 
+};
+
+
 export const isManager = () => {
   const tokenData = getTokenData();
   return tokenData?.role === 'Manager';

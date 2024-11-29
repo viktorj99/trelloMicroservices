@@ -1,34 +1,87 @@
 import React from 'react';
-import { Menu } from 'antd';
-import { HomeOutlined, UserOutlined, SettingOutlined } from '@ant-design/icons';
-import { Link } from 'react-router-dom';
-import { getTokenData } from '../../utils/authHelpers';
+import { Menu, Dropdown, Button } from 'antd';
+import { HomeOutlined, UserOutlined, SettingOutlined, LogoutOutlined } from '@ant-design/icons';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { removeToken, isUserLoggedIn } from '../../utils/authHelpers';
 
 const Navbar: React.FC = () => {
-	const tokenData = getTokenData();
-	const isManager = tokenData?.role === 'Manager';
+  const navigate = useNavigate();
+  const location = useLocation();
 
-	return (
-		<Menu mode='horizontal' theme='dark' defaultSelectedKeys={['home']}>
-			<Menu.Item key='home' icon={<HomeOutlined />}>
-				<Link to='/'>Home</Link>
-			</Menu.Item>
-			<Menu.Item key='login' icon={<UserOutlined />}>
-				<Link to='/login'>Login</Link>
-			</Menu.Item>
-			<Menu.Item key='registration' icon={<SettingOutlined />}>
-				<Link to='/registration'>Registration</Link>
-			</Menu.Item>
-			{isManager && (
-				<Menu.Item key='projectCreate' icon={<SettingOutlined />}>
-					<Link to='/project/create'>Create Project</Link>
-				</Menu.Item>
-			)}
-			<Menu.Item key='projects' icon={<SettingOutlined />}>
-				<Link to='/projects'>Projects</Link>
-			</Menu.Item>
-		</Menu>
-	);
+  const selectedKey =
+    location.pathname === '/' ? 'home' :
+    location.pathname === '/projects' ? 'projects' :
+    location.pathname === '/project/create' ? 'projectCreate' :
+    null;
+
+  const handleLogout = () => {
+    removeToken();
+    navigate('/login');
+  };
+
+  const guestMenu = (
+    <Menu>
+      <Menu.Item key="login">
+        <Link to="/login">Login</Link>
+      </Menu.Item>
+      <Menu.Item key="registration">
+        <Link to="/registration">Registration</Link>
+      </Menu.Item>
+    </Menu>
+  );
+
+  return (
+    <div
+      style={{
+        backgroundColor: '#001529', 
+        display: 'flex',
+        alignItems: 'center',
+        padding: '0',
+      }}
+    >
+      <Menu
+        mode="horizontal"
+        theme="dark"
+        selectedKeys={selectedKey ? [selectedKey] : []}
+        style={{
+          flex: 1,
+          borderBottom: 'none',
+          justifyContent: 'flex-start', 
+        }}
+      >
+        <Menu.Item key="home" icon={<HomeOutlined />}>
+          <Link to="/">Home</Link>
+        </Menu.Item>
+        {isUserLoggedIn() && (
+          <Menu.Item key="projects" icon={<SettingOutlined />}>
+            <Link to="/projects">Projects</Link>
+          </Menu.Item>
+        )}
+      </Menu>
+
+      <div style={{ display: 'flex', alignItems: 'center' }}>
+        {isUserLoggedIn() ? (
+          <Button
+            type="text"
+            icon={<LogoutOutlined />}
+            style={{ color: '#fff' }}
+            onClick={handleLogout}
+          >
+            Logout
+          </Button>
+        ) : (
+          <Dropdown overlay={guestMenu} placement="bottomRight">
+            <Button
+              icon={<UserOutlined />}
+              style={{ color: 'white', backgroundColor: 'transparent', border: 'none' }}
+            >
+              Options
+            </Button>
+          </Dropdown>
+        )}
+      </div>
+    </div>
+  );
 };
 
 export default Navbar;
