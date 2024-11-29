@@ -29,6 +29,7 @@ const Navbar: React.FC = () => {
 	const openDrawer = () => {
 		setDrawerVisible(true);
 		loadNotifications();
+		console.log("Token Data: ", tokenData);
 	};
 
 	// Close the drawer
