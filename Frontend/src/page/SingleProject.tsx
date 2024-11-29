@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
-import { addMember, getProject, handleDeleteMember } from '../services/projectService';
+import { addMember, getProject, deleteMember } from '../services/projectService';
 import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
 import { User } from '../entities/models/User';
 import { useState, useEffect } from 'react';
@@ -51,50 +51,53 @@ const SingleProject = () => {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: (username: string) => handleDeleteMember(username, project?.members || [], id!),
+    mutationFn: (username: string) => {
+        const memberToRemove = project?.members.find((member: User) => member.username === username);
+        if (!memberToRemove) {
+            throw new Error('Member not found in the project.');
+        }
+        return deleteMember(memberToRemove, id!); 
+    },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['project', id] });
-      notification.success({
-        message: 'Success',
-        description: 'Project updated successfully!',
-      });
+        queryClient.invalidateQueries({ queryKey: ['project', id] });
+        notification.success({
+            message: 'Success',
+            description: 'Member removed successfully!',
+        });
     },
     onError: (error: unknown) => {
-      notification.error({
-        message: 'Error',
-        description: `Project update failed: ${(error as Error).message}`,
-      });
+        notification.error({
+            message: 'Error',
+            description: `Member removal failed: ${(error as Error).message}`,
+        });
     },
-  });
+});
 
-  const addMutation = useMutation({
+const addMutation = useMutation({
     mutationFn: (userId: string) => {
-      const userToAdd = users?.find((user) => user.id === userId);
-      if (!userToAdd) {
-        throw new Error('User not found');
-      }
-      const newMember = {
-        id: userToAdd.id,
-        username: userToAdd.username,
-        role: userToAdd.role,
-      };
-      return addMember(newMember, project?.members || [], id!);
+        const userToAdd = users?.find((user) => user.id === userId);
+        if (!userToAdd) {
+            throw new Error('User not found.');
+        }
+        return addMember(userToAdd, id!); 
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['project', id] });
-      notification.success({
-        message: 'Success',
-        description: 'Member added successfully!',
-      });
-      setIsModalVisible(false);
+        queryClient.invalidateQueries({ queryKey: ['project', id] });
+        notification.success({
+            message: 'Success',
+            description: 'Member added successfully!',
+        });
+        setIsModalVisible(false);
     },
     onError: (error: unknown) => {
-      notification.error({
-        message: 'Error',
-        description: `Member addition failed: ${(error as Error).message}`,
-      });
+        notification.error({
+            message: 'Error',
+            description: `Member addition failed: ${(error as Error).message}`,
+        });
     },
-  });
+});
+
+
   const taskMutation = useMutation({
     mutationFn: createTask,
     onSuccess: () => {
@@ -260,40 +263,47 @@ const SingleProject = () => {
 
       {/* Tasks Table */}
       <h2>Tasks</h2>
-      <Table dataSource={tasks} rowKey='id'>
-        <Table.Column title='Task Title' dataIndex='title' />
-        <Table.Column title='Description' dataIndex='description' />
-        <Table.Column title='Status' dataIndex='status' />
+      <Table dataSource={tasks} rowKey="id">
+        <Table.Column title="Task Title" dataIndex="title" />
+        <Table.Column title="Description" dataIndex="description" />
+        <Table.Column title="Status" dataIndex="status" />
+
         <Table.Column
-          title={userRole === Role.Member ? 'Change Status' : 'Assign Member'}
-          render={(_, task: any) => {
-            if (userRole === Role.Member && task.member === userId) {
-              return (
-                <Button
-                  onClick={() => handleToggleTaskStatus(task.id)}
-                >
-                  {task.status === 'IN_PROGRESS' ? 'Mark Finished' : 'Mark In Progress'}
-                </Button>
-              );
-            } else if (userRole === Role.Manager) {
-              if (task.status !== 'PENDING') {
-                return <span>Assigned</span>;
-              } else {
-                return (
+            title={userRole === Role.Manager ? 'Assign Member' : 'Change Status'}
+            render={(_, task: Task) => {
+              const isAssigned = task.member && task.member !== '000000000000000000000000';
+
+              if (userRole === Role.Manager) {
+                return isAssigned ? (
+                  <span>Assigned</span>
+                ) : (
                   <Select
-                  style={{ width: 200 }}
-                  onChange={(value) => handleAssignMemberToTask(task.id!, value)}
-                >
-                  {project.members.map((member: User) => (
-                    <Option key={member.id} value={member.id}>
-                      {member.username}
-                    </Option>
-                  ))}
-                </Select>
+                    style={{ width: 200 }}
+                    placeholder="Assign member"
+                    onChange={(value) => handleAssignMemberToTask(task.id!, value)}
+                  >
+                    {project.members.map((member: User) => (
+                      <Option key={member.id} value={member.id}>
+                        {member.username}
+                      </Option>
+                    ))}
+                  </Select>
                 );
               }
+
+            if (userRole === Role.Member && task.member === userId) {
+              return (
+                <Button onClick={() => handleToggleTaskStatus(task.id!)}>
+                  {task.status === 'PENDING'
+                    ? 'Start Task'
+                    : task.status === 'IN_PROGRESS'
+                    ? 'Mark Finished'
+                    : 'Mark In Progress'}
+                </Button>
+              );
             }
-            return <span>Assigned</span>;
+
+            return <span>{task.member ? 'Assigned' : 'Unassigned'}</span>;
           }}
         />
       </Table>

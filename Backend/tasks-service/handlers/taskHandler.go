@@ -98,7 +98,6 @@ func (h *TaskHandler) AssignMemberToTask(w http.ResponseWriter, r *http.Request)
 
 	updateData := bson.M{
 		"member": memberObjectID,
-		"status": model.InProgress,
 	}
 
 	err = h.service.UpdateTask(ctx, taskObjectID, updateData)
@@ -156,12 +155,15 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var updateStatus model.Status
-	if task.Status == model.InProgress {
-		updateStatus = model.Finished
-	} else if task.Status == model.Finished {
+	switch task.Status {
+	case model.Pending:
 		updateStatus = model.InProgress
-	} else {
-		http.Error(w, "Invalid task status", http.StatusBadRequest)
+	case model.InProgress:
+		updateStatus = model.Finished
+	case model.Finished:
+		updateStatus = model.InProgress
+	default:
+		http.Error(w, "Invalid task status transition", http.StatusBadRequest)
 		return
 	}
 

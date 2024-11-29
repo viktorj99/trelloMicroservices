@@ -56,26 +56,22 @@ export const getProject = async (id: string) => {
 };
 
 
-export const handleDeleteMember = async (username: string, members: User[], id: string) => {
-    const newMembers = members.filter((member) => member.username !== username);
-
-    const payload = {
-        members: newMembers,
-    };
+export const addMember = async (newMember: User, projectId: string) => {
+    const token = getToken();
+    const url = `${BASE_URL}/${projectId}/add-member`;
 
     try {
-        const token = getToken();
-        const url = `${BASE_URL}/${id}/update`;
-        await axios.put(url, payload, {
+        await axios.post(url, newMember, {
             headers: {
                 Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
             },
         });
     } catch (error) {
         if (axios.isAxiosError(error)) {
             console.error('Error response:', error.response?.data);
             throw new Error(
-                error.response?.data?.message || 'An error occurred while updating the project.'
+                error.response?.data?.message || 'An error occurred while adding the member.'
             );
         } else {
             console.error('Unexpected error:', error);
@@ -84,26 +80,22 @@ export const handleDeleteMember = async (username: string, members: User[], id: 
     }
 };
 
-export const addMember = async (newMember: User, members: User[], id: string) => {
-    const updatedMembers = [...members, newMember];
-
-    const payload = {
-        members: updatedMembers,
-    };
+export const deleteMember = async (member: User, projectId: string) => {
+    const token = getToken();
+    const url = `${BASE_URL}/${projectId}/remove-member`;
 
     try {
-        const token = getToken();
-        const url = `${BASE_URL}/${id}/update`;
-        await axios.put(url, payload, {
+        await axios.post(url, member, {
             headers: {
                 Authorization: `Bearer ${token}`,
+                'Content-Type': 'application/json',
             },
         });
     } catch (error) {
         if (axios.isAxiosError(error)) {
             console.error('Error response:', error.response?.data);
             throw new Error(
-                error.response?.data?.message || 'An error occurred while adding the member.'
+                error.response?.data?.message || 'An error occurred while removing the member.'
             );
         } else {
             console.error('Unexpected error:', error);
