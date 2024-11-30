@@ -28,7 +28,6 @@ export const notifyMembers = async (project_name: string, user_ids: string[], ty
 
         console.log('Sending:', { project_name, user_ids });
 
-        // Send the project name and member IDs to the backend
         const response = await axios.post(url, {
             project_name,
             user_ids
