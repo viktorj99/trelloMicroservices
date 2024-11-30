@@ -77,7 +77,7 @@ export const assignMemberToTask = async (taskId: string, memberId: string) => {
 export const toggleTaskStatus = async (taskId: string, memberId: string) => {
     try {
         const token = getToken();  
-        const response = await axios.post(`${BASE_URL}/${taskId}/member/${memberId}/toggle-status`, {}, {
+        const response = await axios.put(`${BASE_URL}/${taskId}/member/${memberId}/toggle-status`, {}, {
             headers: {
                 Authorization: `Bearer ${token}`,  
             },
@@ -88,6 +88,29 @@ export const toggleTaskStatus = async (taskId: string, memberId: string) => {
             console.error('Error toggling task status:', error.response?.data);
             throw new Error(
                 error.response?.data?.message || 'An error occurred while toggling the task status.'
+            );
+        } else {
+            console.error('Unexpected error:', error);
+            throw new Error('An unexpected error occurred.');
+        }
+    }
+};
+
+export const removeMemberFromTask = async (taskId: string) => {
+    try {
+        const token = getToken();  
+        const url = `${BASE_URL}/${taskId}/remove-member`;
+        const response = await axios.put(url, {}, {
+            headers: {
+                Authorization: `Bearer ${token}`,  
+            },
+        });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            console.error('Error removing member from task:', error.response?.data);
+            throw new Error(
+                error.response?.data?.message || 'An error occurred while removing the member.'
             );
         } else {
             console.error('Unexpected error:', error);

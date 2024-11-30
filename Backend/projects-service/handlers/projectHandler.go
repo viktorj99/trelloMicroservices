@@ -112,7 +112,6 @@ func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Check if the member is already in the project
 	for _, m := range project.Members {
 		if m.ID == member.ID {
 			http.Error(w, "Member already in project", http.StatusBadRequest)

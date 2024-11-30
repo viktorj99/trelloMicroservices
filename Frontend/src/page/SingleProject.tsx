@@ -5,7 +5,7 @@ import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
 import { User } from '../entities/models/User';
 import { useState, useEffect } from 'react';
 import { Role } from '../entities/models/Role';
-import { createTask, getTasksByProjectId, assignMemberToTask, toggleTaskStatus } from '../services/taskService';
+import { createTask, getTasksByProjectId, assignMemberToTask, toggleTaskStatus, removeMemberFromTask } from '../services/taskService';
 import { Task } from '../entities/models/Task';
 import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
@@ -95,13 +95,24 @@ const addMutation = useMutation({
             description: `Member addition failed: ${(error as Error).message}`,
         });
     },
-});
+  });
+
+  const handleAddMember = () => {
+    if (selectedUser) {
+      addMutation.mutate(selectedUser);
+    } else {
+      notification.error({
+        message: 'Error',
+        description: 'Please select a user to add.',
+      });
+    }
+  };
 
 
   const taskMutation = useMutation({
     mutationFn: createTask,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', id] });
       notification.success({
         message: 'Success',
         description: 'Task created successfully!',
@@ -117,10 +128,15 @@ const addMutation = useMutation({
     },
   });
 
+  const handleCreateTask = (values: any) => {
+    taskMutation.mutate(values);
+  };
+
   const assignMutation = useMutation({
     mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
       assignMemberToTask(taskId, memberId),
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', id] });
       console.log('Member assigned successfully');
     },
     onError: (error) => {
@@ -138,7 +154,7 @@ const addMutation = useMutation({
     mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
       toggleTaskStatus(taskId, memberId),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['tasks'] });
+      queryClient.invalidateQueries({ queryKey: ['tasks', id] });
       notification.success({
         message: 'Success',
         description: 'Task status updated successfully!',
@@ -158,6 +174,27 @@ const addMutation = useMutation({
     }
   };
 
+  const removeMemberFromTaskMutation = useMutation({
+    mutationFn: (taskId: string) => removeMemberFromTask(taskId),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['tasks', id] });
+      notification.success({
+        message: 'Success',
+        description: 'Member removed from task successfully!',
+      });
+    },
+    onError: (error: unknown) => {
+      notification.error({
+        message: 'Error',
+        description: `Failed to remove member: ${(error as Error).message}`,
+      });
+    },
+  });
+
+  const handleRemoveMemberFromTask = (taskId: string) => {
+    removeMemberFromTaskMutation.mutate(taskId);
+  };
+
   if (isLoading || usersLoading) {
     return <p>Loading project data...</p>;
   }
@@ -170,20 +207,6 @@ const addMutation = useMutation({
     return <p>No project data available.</p>;
   }
 
-  const handleAddMember = () => {
-    if (selectedUser) {
-      addMutation.mutate(selectedUser);
-    } else {
-      notification.error({
-        message: 'Error',
-        description: 'Please select a user to add.',
-      });
-    }
-  };
-
-  const handleCreateTask = (values: any) => {
-    taskMutation.mutate(values);
-  };
 
   return (
     <div>
@@ -269,27 +292,36 @@ const addMutation = useMutation({
         <Table.Column title="Status" dataIndex="status" />
 
         <Table.Column
-            title={userRole === Role.Manager ? 'Assign Member' : 'Change Status'}
-            render={(_, task: Task) => {
-              const isAssigned = task.member && task.member !== '000000000000000000000000';
+          title={userRole === Role.Manager ? 'Manage Member' : 'Change Status'}
+          render={(_, task: Task) => {
+            const isAssigned = task.member && task.member !== '000000000000000000000000';
 
-              if (userRole === Role.Manager) {
-                return isAssigned ? (
-                  <span>Assigned</span>
-                ) : (
-                  <Select
-                    style={{ width: 200 }}
-                    placeholder="Assign member"
-                    onChange={(value) => handleAssignMemberToTask(task.id!, value)}
-                  >
-                    {project.members.map((member: User) => (
-                      <Option key={member.id} value={member.id}>
-                        {member.username}
-                      </Option>
-                    ))}
-                  </Select>
-                );
-              }
+            if (userRole === Role.Manager) {
+              return (
+                <div>
+                  {isAssigned && task.status !== 'FINISHED' ? (
+                    <Button danger onClick={() => handleRemoveMemberFromTask(task.id!)}>
+                      Remove Member
+                    </Button>
+                  ) : (
+                    // Only show the assign member option if task is not finished
+                    task.status !== 'FINISHED' && (
+                      <Select
+                        style={{ width: 200 }}
+                        placeholder="Assign member"
+                        onChange={(value) => handleAssignMemberToTask(task.id!, value)}
+                      >
+                        {project.members.map((member: User) => (
+                          <Option key={member.id} value={member.id}>
+                            {member.username}
+                          </Option>
+                        ))}
+                      </Select>
+                    )
+                  )}
+                </div>
+              );
+            }
 
             if (userRole === Role.Member && task.member === userId) {
               return (

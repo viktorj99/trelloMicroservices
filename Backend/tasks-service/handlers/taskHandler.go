@@ -97,7 +97,9 @@ func (h *TaskHandler) AssignMemberToTask(w http.ResponseWriter, r *http.Request)
 	}
 
 	updateData := bson.M{
-		"member": memberObjectID,
+		"$set": bson.M{
+			"member": memberObjectID,
+		},
 	}
 
 	err = h.service.UpdateTask(ctx, taskObjectID, updateData)
@@ -168,8 +170,10 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 	}
 
 	updateData := bson.M{
-		"member": memberObjectID,
-		"status": updateStatus,
+		"$set": bson.M{
+			"member": memberObjectID,
+			"status": updateStatus,
+		},
 	}
 
 	err = h.service.UpdateTask(ctx, taskObjectID, updateData)
@@ -181,4 +185,55 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Task status updated successfully"))
+}
+
+func (h *TaskHandler) RemoveMemberFromTask(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	taskID := vars["taskID"]
+
+	ctx := r.Context()
+	taskObjectID, err := primitive.ObjectIDFromHex(taskID)
+	if err != nil {
+		h.logger.Println("Invalid task ID format:", err)
+		http.Error(w, "Invalid task ID format", http.StatusBadRequest)
+		return
+	}
+
+	task, err := h.service.GetTaskById(ctx, taskID)
+	if err != nil {
+		h.logger.Println("Error fetching task:", err)
+		http.Error(w, "Task not found", http.StatusNotFound)
+		return
+	}
+
+	if task.Status == model.Finished {
+		http.Error(w, "Cannot remove member from a finished task", http.StatusBadRequest)
+		return
+	}
+
+	if task.Status == model.InProgress {
+		updateData := bson.M{
+			"$set":   bson.M{"status": model.Pending},
+			"$unset": bson.M{"member": ""},
+		}
+		err = h.service.UpdateTask(ctx, taskObjectID, updateData)
+		if err != nil {
+			h.logger.Println("Error removing member and updating task status:", err)
+			http.Error(w, "Failed to remove member and update task status", http.StatusInternalServerError)
+			return
+		}
+	} else {
+		updateData := bson.M{
+			"$unset": bson.M{"member": ""},
+		}
+		err = h.service.UpdateTask(ctx, taskObjectID, updateData)
+		if err != nil {
+			h.logger.Println("Error removing member from task:", err)
+			http.Error(w, "Failed to remove member from task", http.StatusInternalServerError)
+			return
+		}
+	}
+
+	w.WriteHeader(http.StatusOK)
+	w.Write([]byte("Member removed from task successfully"))
 }
