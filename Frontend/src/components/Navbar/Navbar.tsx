@@ -29,7 +29,7 @@ const Navbar: React.FC = () => {
 	const openDrawer = () => {
 		setDrawerVisible(true);
 		loadNotifications();
-		console.log("Token Data: ", tokenData);
+		console.log('Token Data: ', tokenData);
 	};
 
 	// Close the drawer
@@ -37,57 +37,58 @@ const Navbar: React.FC = () => {
 		setDrawerVisible(false);
 	};
 
-
 	return (
 		<>
-		<Menu mode='horizontal' theme='dark' defaultSelectedKeys={['home']}>
-			<Menu.Item key='home' icon={<HomeOutlined />}>
-				<Link to='/'>Home</Link>
-			</Menu.Item>
-			<Menu.Item key='login' icon={<UserOutlined />}>
-				<Link to='/login'>Login</Link>
-			</Menu.Item>
-			<Menu.Item key='registration' icon={<SettingOutlined />}>
-				<Link to='/registration'>Registration</Link>
-			</Menu.Item>
-			{isManager && (
-				<Menu.Item key='projectCreate' icon={<SettingOutlined />}>
-					<Link to='/project/create'>Create Project</Link>
+			<Menu mode='horizontal' theme='dark' defaultSelectedKeys={['home']}>
+				<Menu.Item key='home' icon={<HomeOutlined />}>
+					<Link to='/'>Home</Link>
 				</Menu.Item>
-			)}
-			<Menu.Item key='projects' icon={<SettingOutlined />}>
-				<Link to='/projects'>Projects</Link>
-			</Menu.Item>
-			<Menu.Item key='notifications' icon={<BellOutlined />} onClick={openDrawer}>
-					<Badge count={notifications.filter((n: { is_read: any; }) => !n.is_read).length}>
+				<Menu.Item key='login' icon={<UserOutlined />}>
+					<Link to='/login'>Login</Link>
+				</Menu.Item>
+				<Menu.Item key='registration' icon={<SettingOutlined />}>
+					<Link to='/registration'>Registration</Link>
+				</Menu.Item>
+				{isManager && (
+					<Menu.Item key='projectCreate' icon={<SettingOutlined />}>
+						<Link to='/project/create'>Create Project</Link>
+					</Menu.Item>
+				)}
+				<Menu.Item key='projects' icon={<SettingOutlined />}>
+					<Link to='/projects'>Projects</Link>
+				</Menu.Item>
+				<Menu.Item key='notifications' icon={<BellOutlined />} onClick={openDrawer}>
+					<Badge count={notifications.filter((n: { is_read: any }) => !n.is_read).length}>
 						Notifications
 					</Badge>
 				</Menu.Item>
-		</Menu>
-		{/* Notification Drawer */}
-		
-		<Drawer
-		title='Notifications'
-		placement='right'
-		onClose={closeDrawer}
-		open={drawerVisible}
-		width={350}
-		>
-		{loading ? (
-			<Spin />
-		) : (
-			<List
-				dataSource={notifications}
-				renderItem={item => (
-					<List.Item>
-						<List.Item.Meta title={item.message} description={new Date(item.created_at).toLocaleString()} />
-					</List.Item>
+			</Menu>
+			{/* Notification Drawer */}
+
+			<Drawer
+				title='Notifications'
+				placement='right'
+				onClose={closeDrawer}
+				open={drawerVisible}
+				width={350}
+			>
+				{loading ? (
+					<Spin />
+				) : (
+					<List
+						dataSource={notifications}
+						renderItem={(item) => (
+							<List.Item>
+								<List.Item.Meta
+									title={item.message}
+									description={new Date(item.created_at).toLocaleString()}
+								/>
+							</List.Item>
+						)}
+					/>
 				)}
-			/>
-		)}
-		</Drawer>
-	</>
-	
+			</Drawer>
+		</>
 	);
 };
 

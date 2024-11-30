@@ -1,5 +1,5 @@
 # Koristimo Node.js sliku
-FROM node:16-alpine
+FROM node:18
 
 # Postavljamo radni direktorijum
 WORKDIR /app
