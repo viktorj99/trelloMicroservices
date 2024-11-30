@@ -14,6 +14,7 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/hashicorp/consul/api"
+	"github.com/microcosm-cc/bluemonday"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -73,6 +74,12 @@ func RegisterUser(user model.User) error {
 	// if isCommon {
 	// 	return errors.New("password is too common, please choose a more secure password")
 	// }
+
+	sanitizer := bluemonday.StrictPolicy()
+	user.FirstName = sanitizer.Sanitize(user.FirstName)
+	user.LastName = sanitizer.Sanitize(user.LastName)
+	user.Email = sanitizer.Sanitize(user.Email)
+	user.Username = sanitizer.Sanitize(user.Username)
 
 	if user.FirstName == "" || user.LastName == "" || user.Email == "" || user.Username == "" || user.Password == "" || user.Role == "" {
 		return errors.New("all fields are required")

@@ -14,7 +14,7 @@ export interface  CreateProject {
 export interface DTOCreateProject {
 	id?: string; 
   name: string;
-  expectedEndDate?: string; 
+  expectedEndDate?: string | null; 
   minMembers?: number;
   maxMembers?: number;
   manager?: User; 

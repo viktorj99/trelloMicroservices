@@ -22,6 +22,10 @@ func (ps *ProjectService) GetAllProjects(ctx context.Context) ([]model.Project, 
 	return ps.repo.GetAll(ctx)
 }
 
+func (ps *ProjectService) GetProjectByName(ctx context.Context, name string) (*model.Project, error) {
+	return ps.repo.GetByName(ctx, name)
+}
+
 func (ps *ProjectService) GetProjectById(ctx context.Context, id primitive.ObjectID) (*model.Project, error) {
 	return ps.repo.GetById(ctx, id)
 }
