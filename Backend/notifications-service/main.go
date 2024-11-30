@@ -61,6 +61,11 @@ func main() {
 	// Set up router
 	router := mux.NewRouter()
 	router.HandleFunc("/notifications/project/add", notificationHandler.NotifyMembersHandler).Methods("POST")
+	router.HandleFunc("/notifications/project/remove", notificationHandler.NotifyMembersHandler).Methods("POST")
+	router.HandleFunc("/notifications/task/add", notificationHandler.NotifyMembersHandler).Methods("POST")
+	router.HandleFunc("/notifications/task/remove", notificationHandler.NotifyMembersHandler).Methods("POST")
+	router.HandleFunc("/notifications/task/status", notificationHandler.NotifyMembersHandler).Methods("POST")
+
 	router.HandleFunc("/notifications/by_month", notificationHandler.GetNotificationsByMonthHandler).Methods("GET")
 	router.HandleFunc("/notifications/user", notificationHandler.GetAllNotificationsHandler).Methods("GET")
 

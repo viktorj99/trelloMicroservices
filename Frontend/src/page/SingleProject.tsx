@@ -9,6 +9,7 @@ import { createTask, getTasksByProjectId, assignMemberToTask, toggleTaskStatus }
 import { Task } from '../entities/models/Task';
 import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
+import { notifyMembers } from '../services/notificationService';
 const { Option } = Select;
 
 const SingleProject = () => {
@@ -51,14 +52,31 @@ const SingleProject = () => {
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
-    mutationFn: (username: string) => handleDeleteMember(username, project?.members || [], id!),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['project', id] });
-      notification.success({
-        message: 'Success',
-        description: 'Project updated successfully!',
-      });
-    },
+    mutationFn: (username: string) => {
+		const notifUser = project?.members.find((member: { username: string; }) => member.username === username);
+		if (!notifUser) {
+		  throw new Error('User not found');
+		}
+		return handleDeleteMember(username, project?.members || [], id!);
+	},
+
+	onSuccess: async (_data, username) => {
+		try {
+			const notifUser = project?.members.find((member: { username: any; }) => member.username === username);
+			await notifyMembers(project.name, [notifUser.id], 1);
+			notification.success({
+				message: 'Success',
+				description: 'Member deleted and notified successfully!',
+			});
+		} catch (error) {
+			notification.error({
+				message: 'Notification Error',
+				description: `Member was deleted but notification failed: ${(error as Error).message}`,
+			});
+		}
+
+		queryClient.invalidateQueries({ queryKey: ['project', id] });
+	},
     onError: (error: unknown) => {
       notification.error({
         message: 'Error',
