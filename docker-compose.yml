@@ -1,133 +1,166 @@
 services:
-    users-service:
-        build:
-            context: ./Backend
-            dockerfile: users-service/Dockerfile
-        ports:
-            - "8081:8080"
-            - "8444:8443" # HTTPS
-            - "50051:50051"
-        environment:
-            - MONGO_DB_URI=mongodb://host.docker.internal:27017
-            - PORT=8080
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
-            #- CONSUL_HTTP_ADDR=consul:8500  # Add Consul address to env
-        networks:
-            - app-network
-        volumes:
-            - ./certificates:/app/certificates 
-
-    projects-service:
-        build:
-            context: ./Backend
-            dockerfile: projects-service/Dockerfile
-        ports:
-            - "8082:8080"
-            - "8445:8443" # HTTPS
-        environment:
-            - MONGO_DB_URI=mongodb://host.docker.internal:27017
-            - PORT=8080
-        networks:
-            - app-network
-        volumes:
-            - ./certificates:/app/certificates 
-
-    tasks-service:
-        build:
-            context: ./Backend
-            dockerfile: tasks-service/Dockerfile
-        ports:
-            - "8083:8080"
-            - "8446:8443" # HTTPS
-        environment:
-            - MONGO_DB_URI=mongodb://host.docker.internal:27017
-            - PORT=8080
-        networks:
-            - app-network
-        volumes:
-            - ./certificates:/app/certificates 
-            - ./Backend/tasks-service/.env:/app/.env
-    
-    notifications-service:
-        build:
-            context: ./Backend
-            dockerfile: notifications-service/Dockerfile
-        ports:
-            - "8084:8080"
-            - "8447:8443" # HTTPS
-        env_file:
-            - ./Backend/notifications-service/.env
-        networks:
-            - app-network
-
-        volumes:
-            - ./certificates:/app/certificates 
-        
-        environment:
-            - PORT=8080
-            # NoSQL: environment variable holding connection URI for Cassandra database
-            - CASS_DB=cassandra:9042
-            # NoSQL: Extremely important! Cassandra takes a lot of time to start!
-            # If we don't wait for it to fully initialize we will get exceptions and will not be able to connect!
-
-        depends_on:
-            cassandra:
-                condition: service_healthy
-
-    cassandra:
-        image: cassandra
-        restart: always
-        ports:
-         - "9042:9042"
-        # Docker healtcheck - checks if database is "alive"
-        healthcheck:
-            test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
-            interval: 15s
-            timeout: 5s
-            retries: 30
-        networks:
-            - app-network
-
-    api-gateway:
-        build:
-            context: ./Backend/api-gateway
-            dockerfile: Dockerfile
-        ports:
-            - "8080:8080"
-            - "8443:8443" # HTTPS
-        environment:
-            - USER_SERVICE=https://users-service:8443
-            - PROJECT_SERVICE=https://projects-service:8443 # HTTPS URL projects-service-a
-            - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
-            - NOTIFICATION_SERVICE=https://notifications-service:8443
-            - PORT=8443
-
-        networks:
-            - app-network
-        volumes:
-            - ./certificates:/app/certificates
-        depends_on:
-            - users-service
-            - projects-service
-            - tasks-service
-            - notifications-service
-
-    redis:
-        image: "redis:latest"
-        ports:
-            - "6379:6379"
-        networks:
-            - app-network
-
-    # consul:
-    #     image: "consul:1.14.2"
+    # users-service:
+    #     build:
+    #         context: ./Backend
+    #         dockerfile: users-service/Dockerfile
     #     ports:
-    #         - "8500:8500"
+    #         - "8081:8080"
+    #         - "8444:8443" # HTTPS
+    #         - "50051:50051"
+    #     environment:
+    #         - MONGO_DB_URI=mongodb://mongo:27017
+    #         - PORT=8080
+    #         - REDIS_HOST=redis
+    #         - REDIS_PORT=6379
+    #         - CONSUL_DB=consul
+    #         - CONSUL_DB_PORT=8500
     #     networks:
     #         - app-network
-    #     command: "agent -dev -client=0.0.0.0"  # Run in dev mode to allow easy access
-    
+    #     volumes:
+    #         - ./certificates:/app/certificates
+    #         - ./Backend/users-service/config/common_passwords.txt:/app/config/common_passwords.txt
+    #     depends_on:
+    #         - mongo
+    #         - consul
+
+    # projects-service:
+    #     build:
+    #         context: ./Backend
+    #         dockerfile: projects-service/Dockerfile
+    #     ports:
+    #         - "8082:8080"
+    #         - "8445:8443" # HTTPS
+    #     environment:
+    #         - MONGO_DB_URI=mongodb://mongo:27017
+    #         - PORT=8080
+    #     networks:
+    #         - app-network
+    #     volumes:
+    #         - ./certificates:/app/certificates
+    #     depends_on:
+    #         - mongo
+
+    # tasks-service:
+    #     build:
+    #         context: ./Backend
+    #         dockerfile: tasks-service/Dockerfile
+    #     ports:
+    #         - "8083:8080"
+    #         - "8446:8443" # HTTPS
+    #     environment:
+    #         - MONGO_DB_URI=mongodb://mongo:27017
+    #         - PORT=8080
+    #     networks:
+    #         - app-network
+    #     volumes:
+    #         - ./certificates:/app/certificates
+    #         - ./Backend/tasks-service/.env:/app/.env
+    #     depends_on:
+    #         - mongo
+
+    # notifications-service:
+    #     build:
+    #         context: ./Backend
+    #         dockerfile: notifications-service/Dockerfile
+    #     ports:
+    #         - "8084:8080"
+    #         - "8447:8443" # HTTPS
+    #     env_file:
+    #         - ./Backend/notifications-service/.env
+    #     networks:
+    #         - app-network
+
+    #     volumes:
+    #         - ./certificates:/app/certificates
+
+    #     environment:
+    #         - PORT=8080
+    #         # NoSQL: environment variable holding connection URI for Cassandra database
+    #         - CASS_DB=cassandra:9042
+    #         # NoSQL: Extremely important! Cassandra takes a lot of time to start!
+    #         # If we don't wait for it to fully initialize we will get exceptions and will not be able to connect!
+
+    #     depends_on:
+    #         cassandra:
+    #             condition: service_healthy
+
+    # cassandra:
+    #     image: cassandra
+    #     restart: always
+    #     ports:
+    #         - "9042:9042"
+    #     # Docker healtcheck - checks if database is "alive"
+    #     healthcheck:
+    #         test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
+    #         interval: 15s
+    #         timeout: 5s
+    #         retries: 30
+    #     networks:
+    #         - app-network
+
+    # api-gateway:
+    #     build:
+    #         context: ./Backend/api-gateway
+    #         dockerfile: Dockerfile
+    #     ports:
+    #         - "8080:8080"
+    #         - "8443:8443" # HTTPS
+    #     environment:
+    #         - USER_SERVICE=https://users-service:8443
+    #         - PROJECT_SERVICE=https://projects-service:8443 # HTTPS URL projects-service-a
+    #         - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
+    #         - NOTIFICATION_SERVICE=https://notifications-service:8443
+    #         - PORT=8443
+
+    #     networks:
+    #         - app-network
+    #     volumes:
+    #         - ./certificates:/app/certificates
+    #     depends_on:
+    #         - users-service
+    #         - projects-service
+    #         - tasks-service
+    #         - notifications-service
+
+    # redis:
+    #     image: "redis:latest"
+    #     ports:
+    #         - "6379:6379"
+    #     networks:
+    #         - app-network
+    #     volumes:
+    #         - ./Backend/db/redis_store:/data/db
+
+    # consul:
+    #     image: hashicorp/consul:latest
+    #     ports:
+    #         - "8500:8500"
+    #     command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+    #     volumes:
+    #         - ./Backend/db/consul_store:/consul/data
+    #     networks:
+    #         - app-network
+
+    # mongo:
+    #     image: mongo:latest
+    #     restart: always
+    #     ports:
+    #         - "27017:27017"
+    #     networks:
+    #         - app-network
+    #     volumes:
+    #         - ./Backend/db/mongo_store:/data/db
+
+    # mongo-express:
+    #     image: mongo-express:latest
+    #     restart: always
+    #     ports:
+    #         - "8088:8081"
+    #     environment:
+    #         - ME_CONFIG_MONGODB_URL=mongodb://mongo:27017
+    #     networks:
+    #         - app-network
+
     frontend:
         build:
             context: ./Frontend
@@ -135,21 +168,24 @@ services:
         ports:
             - "5173:5173"
         volumes:
+            - ./Frontend:/app
+            - /app/node_modules
             - ./certificates:/app/certificates
+        environment:
+            CHOKIDAR_USEPOLLING: "true"
         env_file:
             - ./Frontend/.env
         networks:
             - app-network
-        depends_on:
-            - users-service
-            - projects-service
-            - tasks-service
-            - notifications-service
+        # depends_on:
+        #     - users-service
+        #     - projects-service
+        #     - tasks-service
+        #     - notifications-service
 
 networks:
     app-network:
         driver: bridge
 
-
 volumes:
-  cass_store:
+    cass_store:

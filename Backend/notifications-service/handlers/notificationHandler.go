@@ -42,6 +42,7 @@ func (h *NotificationHandler) NotifyMembersHandler(w http.ResponseWriter, r *htt
 		http.Error(w, "Project name and user IDs are required", http.StatusBadRequest)
 		return
 	}
+
 	// Process each user ID and create a notification
 	for _, userID := range req.UserIDs {
 		// Generate a new UUID for the notification ID
@@ -52,8 +53,22 @@ func (h *NotificationHandler) NotifyMembersHandler(w http.ResponseWriter, r *htt
 			return
 		}
 
-		// Construct the notification message
-		message := "You have been added to the project: " + req.ProjectName
+		var message string
+		switch r.URL.Path {
+		case "/notifications/project/add":
+			message = "You have been added to the project: " + req.ProjectName
+		case "/notifications/project/remove":
+			message = "You have been removed from the project: " + req.ProjectName
+		case "/notifications/task/add":
+			message = "You have been removed from a Task in the project: " + req.ProjectName
+		case "/notifications/task/remove":
+			message = "You have been removed from a Task in the project: " + req.ProjectName
+		case "/notifications/task/status":
+			message = "The status of a task you are assigned to has changed in the project: " + req.ProjectName
+		default:
+			http.Error(w, "Unknown action", http.StatusBadRequest)
+			return
+		}
 
 		// Save the notification using the service
 		if err := h.notificationService.CreateNotification(userID, notificationID, message); err != nil {
@@ -70,6 +85,7 @@ func (h *NotificationHandler) NotifyMembersHandler(w http.ResponseWriter, r *htt
 
 // GetNotificationsByMonthHandler handles the retrieval of notifications for a user in a specific month
 func (h *NotificationHandler) GetNotificationsByMonthHandler(w http.ResponseWriter, r *http.Request) {
+
 	// Extract userID and yearMonth from the query parameters
 	userID := r.URL.Query().Get("user_id")
 	yearMonth := r.URL.Query().Get("year_month")
@@ -95,8 +111,10 @@ func (h *NotificationHandler) GetNotificationsByMonthHandler(w http.ResponseWrit
 // GetAllNotificationsHandler handles the retrieval of all notifications for a user
 func (h *NotificationHandler) GetAllNotificationsHandler(w http.ResponseWriter, r *http.Request) {
 
+	log.Printf("Request URL: %s", r.URL.String())
+
 	// Extract userID from the query parameters
-	userID := r.URL.Query().Get("user_id")
+	userID := r.Header.Get("user_id")
 
 	if userID == "" {
 		http.Error(w, "User ID is required", http.StatusBadRequest)

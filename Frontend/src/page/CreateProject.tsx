@@ -50,6 +50,7 @@ const CreateProjectForm: React.FC = () => {
 		}
 	  
 		const selectedManager: User = {
+		  id: tokenData.id,
 		  username: tokenData.username,
 		  role: Role.Manager,
 		};
@@ -80,7 +81,7 @@ const CreateProjectForm: React.FC = () => {
 				.filter((id): id is string => !!id);
 	  
 			  notificationService
-				.notifyMembers(values.name, memberIds)
+				.notifyMembers(values.name, memberIds, 0)
 				.then(() => {
 				  notification.success({
 					message: 'Success',

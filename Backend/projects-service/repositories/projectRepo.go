@@ -92,8 +92,9 @@ func (pr *ProjectRepo) Insert(ctx context.Context, project *model.Project) (*mon
 }
 
 func (pr *ProjectRepo) Update(ctx context.Context, id primitive.ObjectID, updateData bson.M) (*mongo.UpdateResult, error) {
-	update := bson.M{"$set": updateData}
-	result, err := pr.collection().UpdateOne(ctx, bson.M{"_id": id}, update)
+	filter := bson.M{"_id": id}
+
+	result, err := pr.collection().UpdateOne(ctx, filter, updateData)
 	if err != nil {
 		pr.logger.Println("Error updating project:", err)
 		return nil, err

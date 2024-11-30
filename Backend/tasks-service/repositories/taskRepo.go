@@ -115,9 +115,7 @@ func (tr *TaskRepo) GetByProjectId(ctx context.Context, projectId primitive.Obje
 func (tr *TaskRepo) Update(ctx context.Context, id primitive.ObjectID, updateData bson.M) (*mongo.UpdateResult, error) {
 	filter := bson.M{"_id": id}
 
-	update := bson.M{"$set": updateData}
-
-	result, err := tr.collection().UpdateOne(ctx, filter, update)
+	result, err := tr.collection().UpdateOne(ctx, filter, updateData)
 	if err != nil {
 		tr.logger.Println("Error updating task:", err)
 		return nil, err
