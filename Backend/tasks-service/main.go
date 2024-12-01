@@ -3,17 +3,21 @@ package main
 import (
 	"context"
 	"log"
+	"net"
 	"net/http"
 	"os"
+	taskpb "pb/taskpb"
 	"strings"
 	"tasks-service/handlers"
 	"tasks-service/repositories"
+	"tasks-service/server"
 	"tasks-service/services"
 
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"google.golang.org/grpc"
 )
 
 func main() {
@@ -76,15 +80,37 @@ func main() {
 		httpsPort = "8443" // Default HTTPS port
 	}
 
+	// Channels to catch server errors
+	errChan := make(chan error)
+
+	// Start HTTP server
 	go func() {
 		logger.Printf("HTTP server is starting on port %s...", httpPort)
-		if err := http.ListenAndServe(":"+httpPort, nil); err != nil {
-			logger.Fatalf("HTTP server failed to start: %v", err)
-		}
+		errChan <- http.ListenAndServe(":"+httpPort, nil)
 	}()
 
-	logger.Printf("HTTPS server is starting on port %s...", httpsPort)
-	if err := http.ListenAndServeTLS(":"+httpsPort, "certificates/cert.crt", "certificates/cert.key", router); err != nil {
-		logger.Fatalf("HTTPS server failed to start: %v", err)
-	}
+	// Start HTTPS server
+	go func() {
+		logger.Printf("HTTPS server is starting on port %s...", httpsPort)
+		errChan <- http.ListenAndServeTLS(":"+httpsPort, "certificates/cert.crt", "certificates/cert.key", router)
+	}()
+
+	// Start gRPC server
+	go func() {
+		lis, err := net.Listen("tcp", ":50051")
+		if err != nil {
+			log.Fatalf("failed to listen: %v", err)
+		}
+
+		grpcServer := grpc.NewServer()
+		taskServer := server.NewTaskServer(taskRepo)
+		taskpb.RegisterTaskServiceServer(grpcServer, taskServer)
+
+		logger.Println("gRPC server is running on port 50051...")
+		errChan <- grpcServer.Serve(lis)
+	}()
+
+	// Wait for an error to occur
+	err = <-errChan
+	log.Fatalf("Server error: %v", err)
 }

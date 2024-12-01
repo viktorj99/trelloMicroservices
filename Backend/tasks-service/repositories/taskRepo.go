@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -122,4 +123,31 @@ func (tr *TaskRepo) Update(ctx context.Context, id primitive.ObjectID, updateDat
 	}
 
 	return result, nil
+}
+
+func (tr *TaskRepo) GetUnassignedTasks(ctx context.Context, projectId primitive.ObjectID) ([]model.Task, error) {
+	var tasks []model.Task
+
+	filter := bson.M{
+		"project": projectId,
+		"$or": []bson.M{
+			{"member": bson.M{"$exists": false}},
+			{"member": primitive.NilObjectID},
+			{"member": primitive.NewObjectIDFromTimestamp(time.Time{})},
+		},
+	}
+
+	cursor, err := tr.collection().Find(ctx, filter)
+	if err != nil {
+		tr.logger.Println("Error retrieving unassigned tasks:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	if err = cursor.All(ctx, &tasks); err != nil {
+		tr.logger.Println("Error decoding unassigned tasks:", err)
+		return nil, err
+	}
+
+	return tasks, nil
 }

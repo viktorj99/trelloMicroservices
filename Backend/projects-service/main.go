@@ -24,11 +24,20 @@ func main() {
 	userClient := client.ConnectToUserService(logger)
 	defer userClient.Close()
 
+	logger.Println("Connecting to task service...")
+	taskServiceClient, err := client.NewTaskClient("tasks-service:50051")
+	if err != nil {
+		logger.Fatalf("could not connect to task service: %v", err)
+	}
+	logger.Println("Connected to task service.")
+	defer taskServiceClient.Close()
+
 	// Inicijalizacija servisa
 	service := helpers.InitializeService(ctx, logger)
-	handler := handlers.NewProjectHandler(service)
+	handler := handlers.NewProjectHandler(service, taskServiceClient)
 
 	// Postavljanje ruta za Project REST API i GRPC
-	router := helpers.SetupRoutes(handler, userClient.Client)
+	router := helpers.SetupRoutes(handler, userClient.Client, taskServiceClient)
 	helpers.RunServer(router, logger)
+
 }

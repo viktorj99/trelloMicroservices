@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	taskpb "pb/taskpb"
+	"projects-service/client"
 	"projects-service/model"
 	"projects-service/services"
 
@@ -13,12 +15,15 @@ import (
 )
 
 type ProjectHandler struct {
-	service *services.ProjectService
+	service    *services.ProjectService
+	taskClient *client.TaskClient
 }
 
-func NewProjectHandler(service *services.ProjectService) *ProjectHandler {
+// NewProjectHandler creates a new ProjectHandler instance
+func NewProjectHandler(service *services.ProjectService, taskClient *client.TaskClient) *ProjectHandler {
 	return &ProjectHandler{
-		service: service,
+		service:    service,
+		taskClient: taskClient,
 	}
 }
 
@@ -124,17 +129,40 @@ func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	updateData := bson.M{
-		"$push": bson.M{"members": member},
+	// Create the gRPC client for TaskService
+	taskClient, err := client.NewTaskClient("tasks-service:50051")
+	if err != nil {
+		http.Error(w, "Could not connect to task service", http.StatusInternalServerError)
+		return
+	}
+	defer taskClient.Close()
+
+	// Create a ProjectRequest for the gRPC call
+	req := &taskpb.ProjectRequest{
+		ProjectId: projectID,
 	}
 
-	if _, err := ph.service.UpdateProject(ctx, id, updateData); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	resp, err := taskClient.GetUnassignedTasks(ctx, req)
+	if err != nil {
+		http.Error(w, "Error fetching unassigned tasks", http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode("Member added successfully")
+	if len(resp.Tasks) > 0 {
+		updateData := bson.M{
+			"$push": bson.M{"members": member},
+		}
+
+		if _, err := ph.service.UpdateProject(ctx, id, updateData); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode("Member added successfully")
+	} else {
+		http.Error(w, "No unassigned tasks found in the project", http.StatusConflict)
+	}
 }
 
 func (ph *ProjectHandler) RemoveMemberFromProject(w http.ResponseWriter, r *http.Request) {

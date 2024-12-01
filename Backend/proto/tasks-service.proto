@@ -1,0 +1,33 @@
+syntax = "proto3";
+
+package taskservice;
+
+option go_package = "pb/taskpb";
+
+import "google/protobuf/wrappers.proto";
+
+// The service definition
+service TaskService {
+  rpc GetUnassignedTasks (ProjectRequest) returns (TaskResponse);
+}
+
+// The request message containing the project ID
+message ProjectRequest {
+  string project_id = 1;
+}
+
+// The response message containing a list of tasks
+message TaskResponse {
+  repeated Task tasks = 1;
+}
+
+// The task message
+message Task {
+  string id = 1;
+  string title = 2;
+  string description = 3;
+  string status = 4;
+  string project = 5;
+  google.protobuf.StringValue member = 6; // Nullable member field
+  bool blocked = 7;
+}
