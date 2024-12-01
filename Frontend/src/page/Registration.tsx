@@ -1,36 +1,37 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Form, Input, Button, Select, notification } from 'antd';
 import { Role } from '../entities/models/Role';
 import { RegistrationUser } from '../entities/models/RegistrationUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { postData } from '../services/userService';
-import DOMPurify from 'dompurify'; // Import DOMPurify for sanitization
+import DOMPurify from 'dompurify';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 const RegistrationPage: React.FC = () => {
-    const [form] = Form.useForm<RegistrationUser>();
-    const queryClient = useQueryClient();
-
-    // Mutation for backend registration
-    const mutation = useMutation({
-        mutationFn: postData,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['users'] });
-            notification.success({
-                message: 'Success',
-                description: 'Registration successful, Check your Email.',
-            });
-            form.resetFields();
-            setTimeout(() => {
-                window.location.href = '/verification';
-            }, 1000);
-        },
-        onError: (error) => {
-            notification.error({
-                message: 'Error',
-                description: ` ${(error as Error).message}`,
-            });
-        },
-    });
+	const [form] = Form.useForm<RegistrationUser>();
+	const queryClient = useQueryClient();
+	const [captchaToken, setCaptchaToken] = useState<string | null>(null); 
+	
+	const mutation = useMutation({
+		mutationFn: (user: RegistrationUser) => postData(user, captchaToken),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['users'] });
+			notification.success({
+				message: 'Success',
+				description: 'Registration successful, Check your Email.',
+			});
+			form.resetFields();
+			setTimeout(() => {
+				window.location.href = '/verification';
+			}, 1000);
+		},
+		onError: (error) => {
+			notification.error({
+				message: 'Error',
+				description: ` ${(error as Error).message}`,
+			});
+		},
+	});
 
     // Form submission with sanitization
     const onFinish = (values: RegistrationUser) => {
@@ -43,6 +44,10 @@ const RegistrationPage: React.FC = () => {
         };
         mutation.mutate(sanitizedValues);
     };
+
+	const onCaptchaChange = (token: string | null) => {
+		setCaptchaToken(token);
+	};
 
     return (
         <div style={{ maxWidth: 400, margin: '0 auto', padding: '2rem' }}>
@@ -134,7 +139,6 @@ const RegistrationPage: React.FC = () => {
                 >
                     <Input.Password />
                 </Form.Item>
-
                 <Form.Item
                     name='role'
                     label='Role'
@@ -145,15 +149,21 @@ const RegistrationPage: React.FC = () => {
                         <Select.Option value={Role.Member}>Member</Select.Option>
                     </Select>
                 </Form.Item>
+				<div style={{ textAlign: 'center', marginBottom: '10px' }}>
+					<ReCAPTCHA
+						sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+						onChange={onCaptchaChange}
+					/>
+				</div>
 
-                <Form.Item>
-                    <Button type='primary' htmlType='submit'>
-                        Register
-                    </Button>
-                </Form.Item>
-            </Form>
-        </div>
-    );
+				<Form.Item>
+					<Button type='primary' htmlType='submit'>
+						Register
+					</Button>
+				</Form.Item>
+			</Form>
+		</div>
+	);
 };
 
 export default RegistrationPage;
