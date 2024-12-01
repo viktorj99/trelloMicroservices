@@ -1,9 +1,12 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -16,6 +19,8 @@ import (
 	"github.com/hashicorp/consul/api"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const recaptchaSecret = "6LeNfI8qAAAAAHUP6tTpTDb0uGtOwvKTDDIIPV6Y"
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 
@@ -174,4 +179,30 @@ func GetUserByEmail(email string) (model.User, error) {
 	}
 
 	return user, nil
+}
+
+func VerifyCaptcha(captchaToken string) error {
+	// Prepare the request to Google reCAPTCHA API
+	resp, err := http.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
+		"secret":   {recaptchaSecret},
+		"response": {captchaToken},
+	})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Success bool `json:"success"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return err
+	}
+
+	if !result.Success {
+		return errors.New("captcha verification failed")
+	}
+
+	return nil
 }

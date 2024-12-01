@@ -20,22 +20,18 @@ const SingleProject = () => {
   const [selectedUser, setSelectedUser] = useState<string | null>(null);
   const [taskForm] = Form.useForm();
   const [tasks, setTasks] = useState<Task[]>([]);
-
-  const [userRole, setUserRole] = useState<Role | null>(null); 
+  const [userRole, setUserRole] = useState<Role | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
-
 
   const { data: project, isLoading, error } = useQuery({
     queryKey: ['project', id],
     queryFn: () => getProject(id!),
   });
 
-
   const { data: users, isLoading: usersLoading } = useQuery<User[]>({
     queryKey: ['users'],
     queryFn: getAllUserMembers,
   });
-
 
   useEffect(() => {
     if (id) {

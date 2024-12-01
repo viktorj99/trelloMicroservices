@@ -21,8 +21,9 @@ var redisClient = redis.NewClient(&redis.Options{
 })
 
 type LoginRequest struct {
-	Username string `json:"username"`
-	Password string `json:"password"`
+	Username     string `json:"username"`
+	Password     string `json:"password"`
+	CaptchaToken string `json:"captchaToken"`
 }
 
 type LoginResponse struct {
@@ -39,6 +40,13 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 	err := json.NewDecoder(r.Body).Decode(&user)
 	if err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	captchaToken := r.Header.Get("captcha_token")
+
+	if err := services.VerifyCaptcha(captchaToken); err != nil {
+		http.Error(w, "Invalid captcha", http.StatusUnauthorized)
 		return
 	}
 
@@ -81,6 +89,12 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 	var req LoginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
+		return
+	}
+
+	// Verify the captcha token
+	if err := services.VerifyCaptcha(req.CaptchaToken); err != nil {
+		http.Error(w, "Invalid captcha", http.StatusUnauthorized)
 		return
 	}
 

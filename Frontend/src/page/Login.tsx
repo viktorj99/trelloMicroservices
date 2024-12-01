@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { loginUser } from '../services/userService';
 import { Link } from 'react-router-dom';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 interface LoginFormValues {
 	username: string;
@@ -9,10 +10,12 @@ interface LoginFormValues {
 }
 
 const LoginPage: React.FC = () => {
+	const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+
 	const onFinish = async (values: LoginFormValues) => {
 		try {
 			const { username, password } = values;
-			const data = await loginUser(username, password);
+			const data = await loginUser(username, password, captchaToken);
 
 			const token = data.token;
 			if (token) {
@@ -26,6 +29,10 @@ const LoginPage: React.FC = () => {
 			message.error('Login failed. Please try again.');
 		}
 	};
+
+	const onCaptchaChange = (token: string | null) => {
+        setCaptchaToken(token);
+    };
 
 	return (
 		<div style={{ maxWidth: '400px', margin: '100px auto' }}>
@@ -44,6 +51,12 @@ const LoginPage: React.FC = () => {
 				>
 					<Input.Password placeholder="Password" />
 				</Form.Item>
+				<div style={{ textAlign: 'center', marginBottom: '10px' }}>
+                    <ReCAPTCHA
+                        sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+                        onChange={onCaptchaChange}
+                    />
+                </div>
 				<Form.Item>
 					<Button type="primary" htmlType="submit" block>
 						Log in

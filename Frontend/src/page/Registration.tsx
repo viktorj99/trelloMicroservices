@@ -1,15 +1,18 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Form, Input, Button, Select, notification } from 'antd';
 import { Role } from '../entities/models/Role';
 import { RegistrationUser } from '../entities/models/RegistrationUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { postData } from '../services/userService';
+import ReCAPTCHA from 'react-google-recaptcha';
 
 const RegistrationPage: React.FC = () => {
 	const [form] = Form.useForm<RegistrationUser>();
 	const queryClient = useQueryClient();
+	const [captchaToken, setCaptchaToken] = useState<string | null>(null); 
+	
 	const mutation = useMutation({
-		mutationFn: postData,
+		mutationFn: (user: RegistrationUser) => postData(user, captchaToken),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['users'] });
 			notification.success({
@@ -31,6 +34,10 @@ const RegistrationPage: React.FC = () => {
 
 	const onFinish = (values: RegistrationUser) => {
 		mutation.mutate(values);
+	};
+
+	const onCaptchaChange = (token: string | null) => {
+		setCaptchaToken(token);
 	};
 
 	return (
@@ -117,6 +124,13 @@ const RegistrationPage: React.FC = () => {
 						<Select.Option value={Role.Member}>Member</Select.Option>
 					</Select>
 				</Form.Item>
+
+				<div style={{ textAlign: 'center', marginBottom: '10px' }}>
+					<ReCAPTCHA
+						sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+						onChange={onCaptchaChange}
+					/>
+				</div>
 
 				<Form.Item>
 					<Button type='primary' htmlType='submit'>
