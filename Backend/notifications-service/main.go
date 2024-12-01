@@ -70,7 +70,7 @@ func main() {
 	router.HandleFunc("/notifications/user", notificationHandler.GetAllNotificationsHandler).Methods("GET")
 
 	// HTTP and HTTPS ports
-	httpPort := os.Getenv("HTTP_PORT")
+	httpPort := os.Getenv("PORT")
 	if httpPort == "" {
 		httpPort = "8084" // Default HTTP port
 	}

@@ -8,15 +8,20 @@ services:
             - "8444:8443" # HTTPS
             - "50051:50051"
         environment:
-            - MONGO_DB_URI=mongodb://host.docker.internal:27017
+            - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
             - REDIS_HOST=redis
             - REDIS_PORT=6379
-            #- CONSUL_HTTP_ADDR=consul:8500  # Add Consul address to env
+            - CONSUL_DB=consul
+            - CONSUL_DB_PORT=8500
         networks:
             - app-network
         volumes:
-            - ./certificates:/app/certificates 
+            - ./certificates:/app/certificates
+            - ./Backend/users-service/config/common_passwords.txt:/app/config/common_passwords.txt
+        depends_on:
+            - mongo
+            - consul
 
     projects-service:
         build:
@@ -26,12 +31,14 @@ services:
             - "8082:8080"
             - "8445:8443" # HTTPS
         environment:
-            - MONGO_DB_URI=mongodb://host.docker.internal:27017
+            - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
         networks:
             - app-network
         volumes:
-            - ./certificates:/app/certificates 
+            - ./certificates:/app/certificates
+        depends_on:
+            - mongo
 
     tasks-service:
         build:
@@ -41,14 +48,16 @@ services:
             - "8083:8080"
             - "8446:8443" # HTTPS
         environment:
-            - MONGO_DB_URI=mongodb://host.docker.internal:27017
+            - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
         networks:
             - app-network
         volumes:
-            - ./certificates:/app/certificates 
+            - ./certificates:/app/certificates
             - ./Backend/tasks-service/.env:/app/.env
-    
+        depends_on:
+            - mongo
+
     notifications-service:
         build:
             context: ./Backend
@@ -62,8 +71,8 @@ services:
             - app-network
 
         volumes:
-            - ./certificates:/app/certificates 
-        
+            - ./certificates:/app/certificates
+
         environment:
             - PORT=8080
             # NoSQL: environment variable holding connection URI for Cassandra database
@@ -79,7 +88,7 @@ services:
         image: cassandra
         restart: always
         ports:
-         - "9042:9042"
+            - "9042:9042"
         # Docker healtcheck - checks if database is "alive"
         healthcheck:
             test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
@@ -119,15 +128,39 @@ services:
             - "6379:6379"
         networks:
             - app-network
+        volumes:
+            - ./Backend/db/redis_store:/data/db
 
-    # consul:
-    #     image: "consul:1.14.2"
-    #     ports:
-    #         - "8500:8500"
-    #     networks:
-    #         - app-network
-    #     command: "agent -dev -client=0.0.0.0"  # Run in dev mode to allow easy access
-    
+    consul:
+        image: hashicorp/consul:latest
+        ports:
+            - "8500:8500"
+        command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+        volumes:
+            - ./Backend/db/consul_store:/consul/data
+        networks:
+            - app-network
+
+    mongo:
+        image: mongo:latest
+        restart: always
+        ports:
+            - "27017:27017"
+        networks:
+            - app-network
+        volumes:
+            - ./Backend/db/mongo_store:/data/db
+
+    mongo-express:
+        image: mongo-express:latest
+        restart: always
+        ports:
+            - "8088:8081"
+        environment:
+            - ME_CONFIG_MONGODB_URL=mongodb://mongo:27017
+        networks:
+            - app-network
+
     frontend:
         build:
             context: ./Frontend
@@ -135,7 +168,11 @@ services:
         ports:
             - "5173:5173"
         volumes:
+            - ./Frontend:/app
+            - /app/node_modules
             - ./certificates:/app/certificates
+        environment:
+            CHOKIDAR_USEPOLLING: "true"
         env_file:
             - ./Frontend/.env
         networks:
@@ -150,6 +187,5 @@ networks:
     app-network:
         driver: bridge
 
-
 volumes:
-  cass_store:
+    cass_store:

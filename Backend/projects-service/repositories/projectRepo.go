@@ -69,6 +69,20 @@ func (pr *ProjectRepo) GetAll(ctx context.Context) ([]model.Project, error) {
 	return projects, nil
 }
 
+func (pr *ProjectRepo) GetByName(ctx context.Context, name string) (*model.Project, error) {
+	var project model.Project
+	err := pr.collection().FindOne(ctx, bson.M{"name": name}).Decode(&project)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		pr.logger.Println("Error retrieving project by name:", err)
+		return nil, err
+	}
+
+	return &project, nil
+}
+
 func (pr *ProjectRepo) GetById(ctx context.Context, id primitive.ObjectID) (*model.Project, error) {
 	var project model.Project
 	err := pr.collection().FindOne(ctx, bson.M{"_id": id}).Decode(&project)
@@ -92,8 +106,9 @@ func (pr *ProjectRepo) Insert(ctx context.Context, project *model.Project) (*mon
 }
 
 func (pr *ProjectRepo) Update(ctx context.Context, id primitive.ObjectID, updateData bson.M) (*mongo.UpdateResult, error) {
-	update := bson.M{"$set": updateData}
-	result, err := pr.collection().UpdateOne(ctx, bson.M{"_id": id}, update)
+	filter := bson.M{"_id": id}
+
+	result, err := pr.collection().UpdateOne(ctx, filter, updateData)
 	if err != nil {
 		pr.logger.Println("Error updating project:", err)
 		return nil, err

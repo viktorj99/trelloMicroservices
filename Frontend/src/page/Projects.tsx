@@ -1,20 +1,21 @@
 import React from 'react';
-import { List, Card, Button} from 'antd';
-import { getAllProjects } from '../services/projectService';
+import { List, Card, Button } from 'antd';
 import { useQuery } from '@tanstack/react-query';
+import { useNavigate } from 'react-router-dom';
+import { getAllProjects } from '../services/projectService';
 import { DTOCreateProject } from '../entities/models/CreateProject';
 
 const ProjectList: React.FC = () => {
-  const { data: projects} = useQuery<DTOCreateProject[]>({
-		queryKey: ['projects'],
-		queryFn: () => getAllProjects(),
-	});
+  const { data: projects } = useQuery<DTOCreateProject[]>({
+    queryKey: ['projects'],
+    queryFn: () => getAllProjects(),
+  });
 
+  const navigate = useNavigate();
 
-  
-if (!projects || projects.length === 0) {
-	return <p>No projects available.</p>; 
-}
+  if (!projects || projects.length === 0) {
+    return <p>No projects available.</p>;
+  }
 
   return (
     <List
@@ -28,7 +29,12 @@ if (!projects || projects.length === 0) {
             <p><strong>Expected End Date:</strong> {project.expectedEndDate}</p>
             <p><strong>Min Members:</strong> {project.minMembers}</p>
             <p><strong>Max Members:</strong> {project.maxMembers}</p>
-            <Button type="primary">Details</Button>
+            <Button
+              type="primary"
+              onClick={() => navigate(`/project/${project.id}`)} 
+            >
+              Details
+            </Button>
           </Card>
         </List.Item>
       )}

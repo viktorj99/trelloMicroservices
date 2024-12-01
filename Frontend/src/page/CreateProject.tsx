@@ -1,3 +1,4 @@
+import React from 'react';
 import { Form, Input, DatePicker, Button, Select, notification } from 'antd';
 import { CreateProject } from '../entities/models/CreateProject';
 import { User } from '../entities/models/User';
@@ -8,6 +9,8 @@ import moment from 'moment';
 import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
 import * as notificationService from '../services/notificationService';
+import DOMPurify from 'dompurify'; // For sanitization
+import { Dayjs } from 'dayjs';
 
 const { Option } = Select;
 
@@ -40,82 +43,127 @@ const CreateProjectForm: React.FC = () => {
 	});
 
 	const onFinish = (values: CreateProject) => {
-		const tokenData = getTokenData();
-		if (!tokenData || tokenData.role !== 'Manager') {
-		  notification.error({
-			message: 'Error',
-			description: 'Only managers can create projects.',
-		  });
-		  return;
-		}
-	  
-		const selectedManager: User = {
-		  username: tokenData.username,
-		  role: Role.Manager,
-		};
-	  
-		const selectedMembers: User[] = (values.members || []).map((memberJson: string) => {
-		  const member = JSON.parse(memberJson);
-		  return {
-			id: member.id,
-			username: member.username,
-			role: Role.Member,
-		  };
-		});
-	  
-		mutation.mutate(
-		  {
-			...values,
-			minMembers: Number(values.minMembers),
-			maxMembers: Number(values.maxMembers),
-			expectedEndDate: moment(values.expectedEndDate).format('YYYY-MM-DD'),
-			manager: selectedManager,
-			members: selectedMembers,
-		  },
-		  {
-			onSuccess: () => {
-			  // Notify members by their IDs
-			  const memberIds = selectedMembers
-				.map((member) => member.id)
-				.filter((id): id is string => !!id);
-	  
-			  notificationService
-				.notifyMembers(values.name, memberIds, 0)
-				.then(() => {
-				  notification.success({
-					message: 'Success',
-					description: 'Members notified successfully!',
-				  });
-				})
-				.catch((error) => {
-				  notification.error({
-					message: 'Error',
-					description: `Failed to notify members: ${error.message}`,
-				  });
-				});
-			},
-		  }
-		);
-	};
-	  
+    const tokenData = getTokenData();
+		
+    if (!tokenData || tokenData.role !== 'Manager') {
+        notification.error({
+            message: 'Error',
+            description: 'Only managers can create projects.',
+        });
+        return;
+    }
+
+		console.log("Raw value from DatePicker (expectedEndDate):", values.expectedEndDate);
+
+    // Format the date using Day.js directly
+    const formattedDate = values.expectedEndDate
+    ? (values.expectedEndDate as unknown as Dayjs).format("YYYY-MM-DD") // Casting to Day.js
+    : null;
+
+    console.log("Formatted Date:", formattedDate);
+
+    // Sanitize the inputs and format the expectedEndDate correctly
+    const sanitizedValues = {
+        ...values,
+        name: DOMPurify.sanitize(values.name),
+        expectedEndDate: formattedDate,
+			};
+
+    const selectedManager: User = {
+				id: tokenData.id,
+        username: tokenData.username,
+        role: Role.Manager,
+    };
+
+    const selectedMembers: User[] = (values.members || []).map((memberJson: string) => {
+        const member = JSON.parse(DOMPurify.sanitize(memberJson));
+        return {
+            id: member.id,
+            username: member.username,
+            role: Role.Member,
+        };
+    });
+
+    mutation.mutate(
+        {
+            ...sanitizedValues,
+            minMembers: Number(values.minMembers),
+            maxMembers: Number(values.maxMembers),
+            manager: selectedManager,
+            members: selectedMembers,
+        },
+        {
+            onSuccess: () => {
+                const memberIds = selectedMembers
+                    .map((member) => member.id)
+                    .filter((id): id is string => !!id);
+
+                notificationService
+                    .notifyMembers(sanitizedValues.name, memberIds, 0)
+                    .then(() => {
+                        notification.success({
+                            message: 'Success',
+                            description: 'Members notified successfully!',
+                        });
+                    })
+                    .catch((error) => {
+                        notification.error({
+                            message: 'Error',
+                            description: `Failed to notify members: ${error.message}`,
+                        });
+                    });
+            },
+        }
+    );
+};
+
 
 	return (
-		<Form form={form} layout='vertical' onFinish={onFinish} initialValues={{ role: 'member' }}>
+		<Form form={form} layout='vertical' onFinish={onFinish}  initialValues={{
+			role: "member",
+			expectedEndDate: null, 
+		}}>
 			<Form.Item
 				label='Project Name'
 				name='name'
-				rules={[{ required: true, message: 'Please input the project name!' }]}
+				rules={[
+					{ required: true, message: 'Please input the project name!' },
+					{ min: 3, message: 'Project name must be at least 3 characters long.' },
+					{ max: 50, message: 'Project name cannot exceed 50 characters.' },
+					{
+						pattern: /^[A-Za-z0-9\s]+$/,
+						message: 'Project name can only contain letters, numbers, and spaces.',
+					},
+				]}
 			>
 				<Input placeholder='Enter project name' />
 			</Form.Item>
 
 			<Form.Item
-				label='Expected End Date'
-				name='expectedEndDate'
-				rules={[{ required: true, message: 'Please select the expected end date!' }]}
-			>
-				<DatePicker style={{ width: '100%' }} />
-			</Form.Item>
+    label="Expected End Date"
+    name="expectedEndDate"
+    rules={[
+        { required: true, message: "Please select the expected end date!" },
+        () => ({
+            validator(_, value) {
+                if (!value) {
+                    return Promise.reject(
+                        new Error("Expected end date is required.")
+                    );
+                }
+                if (moment(value).isBefore(moment(), "day")) {
+                    return Promise.reject(
+                        new Error("Expected end date cannot be before today.")
+                    );
+                }
+                return Promise.resolve();
+            },
+        }),
+    ]}
+>
+    <DatePicker style={{ width: "100%" }} />
+</Form.Item>
+
 
 			<Form.Item
 				label='Minimum Members'
@@ -138,13 +186,23 @@ const CreateProjectForm: React.FC = () => {
 			<Form.Item
 				label='Maximum Members'
 				name='maxMembers'
-				rules={[{ required: true, message: 'Please input the maximum number of members!' }]}
+				rules={[
+					{ required: true, message: 'Please input the maximum number of members!' },
+					{
+						validator: (_, value) =>
+							value >= form.getFieldValue('minMembers')
+								? Promise.resolve()
+								: Promise.reject(
+										new Error('Maximum members must be greater than or equal to minimum members')
+								  ),
+					},
+				]}
 			>
 				<Input type='number' placeholder='Enter maximum members' />
 			</Form.Item>
 
 			<Form.Item label='Members' name='members'>
-				<Select mode='multiple' placeholder='Select members' optionLabelProp="label">
+				<Select mode='multiple' placeholder='Select members' optionLabelProp='label'>
 					{users?.map((user) => (
 						<Option key={user.id} value={JSON.stringify(user)} label={user.username}>
 							{user.username}

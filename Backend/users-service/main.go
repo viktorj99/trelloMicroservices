@@ -1,23 +1,41 @@
 package main
 
 import (
+	"context"
 	"log"
-	"users-service/database"
+	"os"
 	"users-service/helpers"
 	"users-service/repositories"
 	"users-service/services"
+
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
-	// err := utils.LoadCommonPasswordsToConsul("config/common_passwords.txt")
+	// err := utils.LoadCommonPasswordsToConsul("/app/config/common_passwords.txt")
 	// if err != nil {
 	// 	log.Fatalf("Failed to load common passwords to Consul: %v", err)
 	// }
 
-	client, err := database.GetMongoClient()
-	if err != nil {
-		log.Fatal("Failed to connect to MongoDB:", err)
+	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)
+
+	dbURI := os.Getenv("MONGO_DB_URI")
+	if dbURI == "" {
+		logger.Fatal("MONGO_DB_URI is not set")
 	}
+
+	client, err := mongo.NewClient(options.Client().ApplyURI(dbURI))
+	if err != nil {
+		logger.Fatal("Failed to parse MongoDB URI: ", err)
+	}
+
+	ctx := context.Background()
+	err = client.Connect(ctx)
+	if err != nil {
+		logger.Fatal("Failed to connect to MongoDB: ", err)
+	}
+	defer client.Disconnect(ctx)
 
 	repositories.InitRepository(client)
 

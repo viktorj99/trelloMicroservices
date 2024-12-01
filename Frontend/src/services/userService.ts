@@ -4,10 +4,16 @@ import { getToken } from '../utils/authHelpers';
 
 const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/users`;
 
-export const postData = async (user: RegistrationUser) => {
+export const postData = async (user: RegistrationUser, captchaToken: string | null) => {
     try {
+        console.log("User data:", user);
+        console.log("Captcha token:", captchaToken);
         const url = `${BASE_URL}/register`;
-        const response = await axios.post(url, user);
+        const response = await axios.post(url, user, {
+            headers: {
+                captcha_token: captchaToken || '',
+            },
+        });
         return response;
     } catch (error) {
         if (axios.isAxiosError(error)) {
@@ -20,10 +26,10 @@ export const postData = async (user: RegistrationUser) => {
     }
 };
 
-export const loginUser = async (username: string, password: string) => {
+export const loginUser = async (username: string, password: string, captchaToken: string | null) => {
     try {
         const url = `${BASE_URL}/login`;
-        const response = await axios.post(url, { username, password });
+        const response = await axios.post(url, { username, password, captchaToken});
         return response.data;
     } catch (error) {
         if (axios.isAxiosError(error)) {

@@ -1,9 +1,12 @@
 package services
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
@@ -14,8 +17,11 @@ import (
 
 	"github.com/dgrijalva/jwt-go"
 	"github.com/hashicorp/consul/api"
+	"github.com/microcosm-cc/bluemonday"
 	"golang.org/x/crypto/bcrypt"
 )
+
+const recaptchaSecret = "6LeNfI8qAAAAAHUP6tTpTDb0uGtOwvKTDDIIPV6Y"
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
 
@@ -66,13 +72,19 @@ func isCommonPassword(password string) (bool, error) {
 }
 
 func RegisterUser(user model.User) error {
-	// isCommon, err := isCommonPassword(user.Password)
-	// if err != nil {
-	// 	return fmt.Errorf("error checking common password: %v", err)
-	// }
-	// if isCommon {
-	// 	return errors.New("password is too common, please choose a more secure password")
-	// }
+	isCommon, err := isCommonPassword(user.Password)
+	if err != nil {
+		return fmt.Errorf("error checking common password: %v", err)
+	}
+	if isCommon {
+		return errors.New("password is too common, please choose a more secure password")
+	}
+
+	sanitizer := bluemonday.StrictPolicy()
+	user.FirstName = sanitizer.Sanitize(user.FirstName)
+	user.LastName = sanitizer.Sanitize(user.LastName)
+	user.Email = sanitizer.Sanitize(user.Email)
+	user.Username = sanitizer.Sanitize(user.Username)
 
 	if user.FirstName == "" || user.LastName == "" || user.Email == "" || user.Username == "" || user.Password == "" || user.Role == "" {
 		return errors.New("all fields are required")
@@ -174,4 +186,30 @@ func GetUserByEmail(email string) (model.User, error) {
 	}
 
 	return user, nil
+}
+
+func VerifyCaptcha(captchaToken string) error {
+	// Prepare the request to Google reCAPTCHA API
+	resp, err := http.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
+		"secret":   {recaptchaSecret},
+		"response": {captchaToken},
+	})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Success bool `json:"success"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return err
+	}
+
+	if !result.Success {
+		return errors.New("captcha verification failed")
+	}
+
+	return nil
 }

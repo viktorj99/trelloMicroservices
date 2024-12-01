@@ -12,10 +12,10 @@ const (
 
 type Task struct {
 	ID          primitive.ObjectID `bson:"_id,omitempty" json:"id,omitempty"`
-	Title       string             `bson:"title" json:"title"`
+	Title       string             `bson:"title" json:"title" validate:"required,min=5,max=100"`
 	Description string             `bson:"description,omitempty" json:"description,omitempty"`
-	Status      Status             `bson:"status" json:"status"`
-	Project     primitive.ObjectID `bson:"project" json:"project"`
+	Status      Status             `bson:"status" json:"status" validate:"required,oneof=PENDING IN_PROGRESS FINISHED"`
+	Project     primitive.ObjectID `bson:"project" json:"project" validate:"required"`
 	Member      primitive.ObjectID `bson:"member,omitempty" json:"member"`
 	Blocked     bool               `bson:"blocked,omitempty" json:"blocked"`
 }

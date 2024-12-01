@@ -2,13 +2,18 @@ module users-service
 
 go 1.23.3
 
-require go.mongodb.org/mongo-driver v1.17.1
+require (
+	github.com/microcosm-cc/bluemonday v1.0.27
+	go.mongodb.org/mongo-driver v1.17.1
+)
 
 require (
 	github.com/armon/go-metrics v0.4.1 // indirect
+	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/dgryski/go-rendezvous v0.0.0-20200823014737-9f7001d12a5f // indirect
 	github.com/fatih/color v1.16.0 // indirect
+	github.com/gorilla/css v1.0.1 // indirect
 	github.com/hashicorp/errwrap v1.1.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/go-hclog v1.5.0 // indirect
