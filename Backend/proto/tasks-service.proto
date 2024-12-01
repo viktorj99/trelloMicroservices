@@ -9,6 +9,7 @@ import "google/protobuf/wrappers.proto";
 // The service definition
 service TaskService {
   rpc GetUnassignedTasks (ProjectRequest) returns (TaskResponse);
+  rpc CheckMemberTasksInProgress (MemberRequest) returns (BoolResponse); // New RPC
 }
 
 // The request message containing the project ID
@@ -16,9 +17,19 @@ message ProjectRequest {
   string project_id = 1;
 }
 
+// The request message for checking tasks in progress
+message MemberRequest {
+  string member_id = 1;
+}
+
 // The response message containing a list of tasks
 message TaskResponse {
   repeated Task tasks = 1;
+}
+
+// The response message for boolean result
+message BoolResponse {
+  bool value = 1;
 }
 
 // The task message

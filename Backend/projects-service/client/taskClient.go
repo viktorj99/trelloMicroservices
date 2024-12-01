@@ -42,3 +42,8 @@ func (c *TaskClient) Close() {
 func (c *TaskClient) GetUnassignedTasks(ctx context.Context, req *taskpb.ProjectRequest, opts ...grpc.CallOption) (*taskpb.TaskResponse, error) {
 	return c.client.GetUnassignedTasks(ctx, req, opts...)
 }
+
+// CheckMemberTasksInProgress checks if a member has tasks in progress
+func (c *TaskClient) CheckMemberTasksInProgress(ctx context.Context, req *taskpb.MemberRequest, opts ...grpc.CallOption) (*taskpb.BoolResponse, error) {
+	return c.client.CheckMemberTasksInProgress(ctx, req, opts...)
+}

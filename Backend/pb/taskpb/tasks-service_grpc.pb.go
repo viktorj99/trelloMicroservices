@@ -19,7 +19,8 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	TaskService_GetUnassignedTasks_FullMethodName = "/taskservice.TaskService/GetUnassignedTasks"
+	TaskService_GetUnassignedTasks_FullMethodName         = "/taskservice.TaskService/GetUnassignedTasks"
+	TaskService_CheckMemberTasksInProgress_FullMethodName = "/taskservice.TaskService/CheckMemberTasksInProgress"
 )
 
 // TaskServiceClient is the client API for TaskService service.
@@ -27,6 +28,7 @@ const (
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type TaskServiceClient interface {
 	GetUnassignedTasks(ctx context.Context, in *ProjectRequest, opts ...grpc.CallOption) (*TaskResponse, error)
+	CheckMemberTasksInProgress(ctx context.Context, in *MemberRequest, opts ...grpc.CallOption) (*BoolResponse, error)
 }
 
 type taskServiceClient struct {
@@ -46,11 +48,21 @@ func (c *taskServiceClient) GetUnassignedTasks(ctx context.Context, in *ProjectR
 	return out, nil
 }
 
+func (c *taskServiceClient) CheckMemberTasksInProgress(ctx context.Context, in *MemberRequest, opts ...grpc.CallOption) (*BoolResponse, error) {
+	out := new(BoolResponse)
+	err := c.cc.Invoke(ctx, TaskService_CheckMemberTasksInProgress_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // TaskServiceServer is the server API for TaskService service.
 // All implementations must embed UnimplementedTaskServiceServer
 // for forward compatibility
 type TaskServiceServer interface {
 	GetUnassignedTasks(context.Context, *ProjectRequest) (*TaskResponse, error)
+	CheckMemberTasksInProgress(context.Context, *MemberRequest) (*BoolResponse, error)
 	mustEmbedUnimplementedTaskServiceServer()
 }
 
@@ -60,6 +72,9 @@ type UnimplementedTaskServiceServer struct {
 
 func (UnimplementedTaskServiceServer) GetUnassignedTasks(context.Context, *ProjectRequest) (*TaskResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetUnassignedTasks not implemented")
+}
+func (UnimplementedTaskServiceServer) CheckMemberTasksInProgress(context.Context, *MemberRequest) (*BoolResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CheckMemberTasksInProgress not implemented")
 }
 func (UnimplementedTaskServiceServer) mustEmbedUnimplementedTaskServiceServer() {}
 
@@ -92,6 +107,24 @@ func _TaskService_GetUnassignedTasks_Handler(srv interface{}, ctx context.Contex
 	return interceptor(ctx, in, info, handler)
 }
 
+func _TaskService_CheckMemberTasksInProgress_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MemberRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(TaskServiceServer).CheckMemberTasksInProgress(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: TaskService_CheckMemberTasksInProgress_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(TaskServiceServer).CheckMemberTasksInProgress(ctx, req.(*MemberRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // TaskService_ServiceDesc is the grpc.ServiceDesc for TaskService service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -102,6 +135,10 @@ var TaskService_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetUnassignedTasks",
 			Handler:    _TaskService_GetUnassignedTasks_Handler,
+		},
+		{
+			MethodName: "CheckMemberTasksInProgress",
+			Handler:    _TaskService_CheckMemberTasksInProgress_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

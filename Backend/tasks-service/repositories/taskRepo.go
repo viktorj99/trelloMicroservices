@@ -151,3 +151,20 @@ func (tr *TaskRepo) GetUnassignedTasks(ctx context.Context, projectId primitive.
 
 	return tasks, nil
 }
+
+func (tr *TaskRepo) HasPendingOrInProgressTasks(ctx context.Context, memberId primitive.ObjectID) (bool, error) {
+	filter := bson.M{
+		"member": memberId,
+		"status": bson.M{
+			"$in": []model.Status{model.InProgress, model.Pending},
+		},
+	}
+
+	count, err := tr.collection().CountDocuments(ctx, filter)
+	if err != nil {
+		tr.logger.Println("Error checking pending or in-progress tasks for member:", err)
+		return false, err
+	}
+
+	return count > 0, nil
+}

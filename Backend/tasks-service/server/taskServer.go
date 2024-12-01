@@ -60,3 +60,19 @@ func (s *TaskServer) GetUnassignedTasks(ctx context.Context, req *taskpb.Project
 	// Return the tasks in the gRPC response
 	return &taskpb.TaskResponse{Tasks: taskResponses}, nil
 }
+
+func (s *TaskServer) CheckMemberTasksInProgress(ctx context.Context, req *taskpb.MemberRequest) (*taskpb.BoolResponse, error) {
+	// Convert member_id string to primitive.ObjectID
+	memberID, err := primitive.ObjectIDFromHex(req.GetMemberId())
+	if err != nil {
+		return nil, fmt.Errorf("invalid member ID: %v", err)
+	}
+
+	// Check if the member has any in-progress tasks
+	hasTasks, err := s.taskRepo.HasPendingOrInProgressTasks(ctx, memberID)
+	if err != nil {
+		return nil, fmt.Errorf("error checking in-progress tasks: %v", err)
+	}
+
+	return &taskpb.BoolResponse{Value: hasTasks}, nil
+}

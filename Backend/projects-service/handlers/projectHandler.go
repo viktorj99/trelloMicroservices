@@ -129,20 +129,13 @@ func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	// Create the gRPC client for TaskService
-	taskClient, err := client.NewTaskClient("tasks-service:50051")
-	if err != nil {
-		http.Error(w, "Could not connect to task service", http.StatusInternalServerError)
-		return
-	}
-	defer taskClient.Close()
-
 	// Create a ProjectRequest for the gRPC call
 	req := &taskpb.ProjectRequest{
 		ProjectId: projectID,
 	}
 
-	resp, err := taskClient.GetUnassignedTasks(ctx, req)
+	// Reuse the existing gRPC client from ProjectHandler
+	resp, err := ph.taskClient.GetUnassignedTasks(ctx, req)
 	if err != nil {
 		http.Error(w, "Error fetching unassigned tasks", http.StatusInternalServerError)
 		return
@@ -206,6 +199,20 @@ func (ph *ProjectHandler) RemoveMemberFromProject(w http.ResponseWriter, r *http
 		return
 	}
 
+	// gRPC call to check if member has tasks in progress
+	taskReq := &taskpb.MemberRequest{MemberId: member.ID.Hex()}
+	resp, err := ph.taskClient.CheckMemberTasksInProgress(ctx, taskReq)
+	if err != nil {
+		http.Error(w, "Error checking member tasks", http.StatusInternalServerError)
+		return
+	}
+
+	if resp.GetValue() {
+		http.Error(w, "Cannot remove member that is assigned to a task.", http.StatusBadRequest)
+		return
+	}
+
+	// Proceed with removing the member
 	updateData := bson.M{
 		"$pull": bson.M{"members": bson.M{"_id": member.ID}},
 	}
