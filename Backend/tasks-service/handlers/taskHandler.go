@@ -9,6 +9,7 @@ import (
 	"tasks-service/services"
 
 	"github.com/gorilla/mux"
+	"github.com/microcosm-cc/bluemonday"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -59,6 +60,15 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
 		h.logger.Println("Error decoding task:", err)
 		http.Error(w, "Invalid input", http.StatusBadRequest)
+		return
+	}
+
+	sanitizer := bluemonday.StrictPolicy()
+	task.Title = sanitizer.Sanitize(task.Title)
+	task.Description = sanitizer.Sanitize(task.Description)
+
+	if len(task.Title) < 5 || len(task.Title) > 100 {
+		http.Error(w, "Title must be between 5 and 100 characters", http.StatusBadRequest)
 		return
 	}
 

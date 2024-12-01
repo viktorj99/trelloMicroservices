@@ -2,7 +2,7 @@ import React from 'react';
 import { Menu, Dropdown, Button } from 'antd';
 import { HomeOutlined, UserOutlined, SettingOutlined, LogoutOutlined } from '@ant-design/icons';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { removeToken, isUserLoggedIn } from '../../utils/authHelpers';
+import { removeToken, isUserLoggedIn, isManager } from '../../utils/authHelpers';
 
 const Navbar: React.FC = () => {
   const navigate = useNavigate();
@@ -55,6 +55,11 @@ const Navbar: React.FC = () => {
         {isUserLoggedIn() && (
           <Menu.Item key="projects" icon={<SettingOutlined />}>
             <Link to="/projects">Projects</Link>
+          </Menu.Item>
+        )}
+        {isManager() && (
+          <Menu.Item key="projectCreate" icon={<SettingOutlined />}>
+            <Link to="/project/create">Create Project</Link>
           </Menu.Item>
         )}
       </Menu>

@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"projects-service/model"
 	"projects-service/services"
+	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/microcosm-cc/bluemonday"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
@@ -57,31 +59,48 @@ func (ph *ProjectHandler) GetProjectById(w http.ResponseWriter, r *http.Request)
 
 func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
 	ctx := context.TODO()
-
 	var project model.Project
+
 	if err := json.NewDecoder(r.Body).Decode(&project); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	if project.MinMembers <= 0 {
-		http.Error(w, "Minimum members must be greater than 0", http.StatusBadRequest)
+	sanitizer := bluemonday.StrictPolicy()
+	project.Name = sanitizer.Sanitize(project.Name)
+
+	existingProject, err := ph.service.GetProjectByName(ctx, project.Name)
+	if err != nil {
+		http.Error(w, "Error checking project name", http.StatusInternalServerError)
+		return
+	}
+	if existingProject != nil {
+		http.Error(w, "A project with this name already exists", http.StatusBadRequest)
 		return
 	}
 
+	if project.ExpectedEndDate.IsZero() || project.ExpectedEndDate.Time.Before(time.Now()) {
+		http.Error(w, "Expected end date cannot be empty or in the past", http.StatusBadRequest)
+		return
+	}
+
+	if project.MinMembers <= 0 {
+		http.Error(w, "MinMembers must be greater than 0", http.StatusBadRequest)
+		return
+	}
 	if project.MaxMembers < project.MinMembers {
-		http.Error(w, "Maximum members cannot be less than minimum members", http.StatusBadRequest)
+		http.Error(w, "MaxMembers must be greater than or equal to MinMembers", http.StatusBadRequest)
 		return
 	}
 
 	if len(project.Members) < project.MinMembers || len(project.Members) > project.MaxMembers {
-		http.Error(w, "The number of members must be between the minimum and maximum limits", http.StatusBadRequest)
+		http.Error(w, "The number of members must be between MinMembers and MaxMembers", http.StatusBadRequest)
 		return
 	}
 
 	result, err := ph.service.CreateProject(ctx, &project)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Failed to create project", http.StatusInternalServerError)
 		return
 	}
 
