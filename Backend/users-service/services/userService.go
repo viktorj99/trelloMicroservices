@@ -2,13 +2,17 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 	"users-service/model"
 	"users-service/repositories"
 	"users-service/utils"
@@ -20,7 +24,10 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+const recaptchaSecret = "6LeNfI8qAAAAAHUP6tTpTDb0uGtOwvKTDDIIPV6Y"
+
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+var passwordLengthRegex = regexp.MustCompile(`^[A-Za-z\d]{8,}$`)
 
 var validDomains = []string{"gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "example.com"}
 
@@ -49,8 +56,20 @@ var consulClient *api.Client
 
 func init() {
 	var err error
+
+	consulAddress := os.Getenv("CONSUL_DB")
+	consulPort := os.Getenv("CONSUL_DB_PORT")
+
+	if consulAddress == "" {
+		consulAddress = "localhost"
+	}
+	if consulPort == "" {
+		consulPort = "8500"
+	}
+
 	config := api.DefaultConfig()
-	config.Address = "consul:8500" // Use Docker service name and port
+	config.Address = fmt.Sprintf("%s:%s", consulAddress, consulPort)
+
 	consulClient, err = api.NewClient(config)
 	if err != nil {
 		fmt.Printf("Failed to create Consul client: %v\n", err)
@@ -93,6 +112,10 @@ func RegisterUser(user model.User) error {
 
 	if !emailRegex.MatchString(user.Email) || !isValidDomain(user.Email) {
 		return errors.New("invalid email format or domain")
+	}
+
+	if !isValidPassword(user.Password) {
+		return errors.New("password must be at least 8 characters long, contain one uppercase letter, one lowercase letter and one digit")
 	}
 
 	hashedPassword, err := utils.HashPassword(user.Password)
@@ -187,4 +210,47 @@ func GetUserByEmail(email string) (model.User, error) {
 
 func DeleteUser(ctx context.Context, userId string) (*mongo.DeleteResult, error) {
 	return repositories.DeleteUserById(ctx, userId)
+}
+func VerifyCaptcha(captchaToken string) error {
+	// Prepare the request to Google reCAPTCHA API
+	resp, err := http.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
+		"secret":   {recaptchaSecret},
+		"response": {captchaToken},
+	})
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	var result struct {
+		Success bool `json:"success"`
+	}
+
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return err
+	}
+
+	if !result.Success {
+		return errors.New("captcha verification failed")
+	}
+
+	return nil
+}
+
+func isValidPassword(password string) bool {
+	// Check the overall length
+	if !passwordLengthRegex.MatchString(password) {
+		return false
+	}
+
+	// Check for at least one lowercase letter
+	hasLower := strings.IndexFunc(password, unicode.IsLower) >= 0
+
+	// Check for at least one uppercase letter
+	hasUpper := strings.IndexFunc(password, unicode.IsUpper) >= 0
+
+	// Check for at least one digit
+	hasDigit := strings.IndexFunc(password, unicode.IsDigit) >= 0
+
+	return hasLower && hasUpper && hasDigit
 }

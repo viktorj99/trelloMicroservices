@@ -11,24 +11,46 @@ import (
 )
 
 func main() {
+	// Loading environment variables (if needed)
 	// helpers.LoadingEnv()
 
 	ctx := context.Background()
 	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)
 
-	// Povezivanje sa MongoDB
+	// Connect to MongoDB
 	mongoClient := helpers.ConnectMongoDB(ctx, logger)
 	defer mongoClient.Disconnect(ctx)
 
-	// Povezivanje sa gRPC user-service preko novog klijenta
+	// Connect to user service
 	userClient := client.ConnectToUserService(logger)
 	defer userClient.Close()
 
-	// Inicijalizacija servisa
-	service := helpers.InitializeService(ctx, logger)
-	handler := handlers.NewProjectHandler(service)
+	// Start the gRPC server for the project service
+	helpers.StartGRPCServer()
 
-	// Postavljanje ruta za Project REST API i GRPC
-	router := helpers.SetupRoutes(handler, userClient.Client)
+	// Connect to task service before starting gRPC server
+	logger.Println("Connecting to task service...")
+	taskServiceClient, err := client.NewTaskClient("tasks-service:50051")
+	if err != nil {
+		logger.Fatalf("could not connect to task service: %v", err)
+	}
+	logger.Println("Connected to task service.")
+	defer taskServiceClient.Close()
+
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		natsURL = "nats://nats:4222"
+	}
+
+	natsClient := client.NewNATSClient(natsURL)
+	defer natsClient.Conn.Close()
+
+	// Initialize the service and handlers
+	service := helpers.InitializeService(ctx, logger, natsURL)
+	handler := handlers.NewProjectHandler(service, taskServiceClient)
+
+	// Setup routes for Project REST API and gRPC
+	router := helpers.SetupRoutes(handler, userClient.Client, taskServiceClient)
 	helpers.RunServer(router, logger)
+
 }

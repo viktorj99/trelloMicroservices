@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"net/http"
+	taskpb "pb/taskpb"
 	userpb "pb/userpb"
 	"projects-service/auth"
 	"projects-service/handlers"
@@ -9,7 +10,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func SetupRoutes(handler *handlers.ProjectHandler, userClient userpb.UserServiceClient) *mux.Router {
+func SetupRoutes(handler *handlers.ProjectHandler, userClient userpb.UserServiceClient, taskClient taskpb.TaskServiceClient) *mux.Router {
 	router := mux.NewRouter()
 	router.Use()
 
@@ -20,6 +21,7 @@ func SetupRoutes(handler *handlers.ProjectHandler, userClient userpb.UserService
 	router.Handle("/projects/{id}/remove-member", auth.EnableManager(http.HandlerFunc(handler.RemoveMemberFromProject))).Methods("POST", "OPTIONS")
 	router.Handle("/projects/user/{id}", http.HandlerFunc(handler.FindProjectsByUserID)).Methods("GET")
 	router.Handle("/projects/manager/{id}", http.HandlerFunc(handler.FindProjectsByManagerID)).Methods("GET")
+	router.Handle("/projects/{id}", auth.EnableManager(http.HandlerFunc(handler.DeleteProject))).Methods("DELETE", "OPTIONS")
 
 	router.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
 		handlers.GetUsersHandler(w, r, userClient)

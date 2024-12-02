@@ -92,7 +92,11 @@ func GetAllUserMembers() ([]model.User, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	filter := bson.M{"role": "Member"}
+	filter := bson.M{
+		"role":      model.RoleMember,
+		"is_active": true,
+	}
+
 	cursor, err := userCollection.Find(ctx, filter)
 	if err != nil {
 		log.Println("Error finding users:", err)

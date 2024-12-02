@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
-import { addMember, getProject, deleteMember } from '../services/projectService';
+import { useNavigate, useParams } from 'react-router-dom';
+import { addMember, getProject, deleteMember, deleteProject } from '../services/projectService';
 import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
 import { User } from '../entities/models/User';
 import { useState, useEffect } from 'react';
@@ -28,6 +28,7 @@ const SingleProject = () => {
 
 	const [userRole, setUserRole] = useState<Role | null>(null);
 	const [userId, setUserId] = useState<string | null>(null);
+	const navigate = useNavigate();
 
 	const {
 		data: project,
@@ -110,12 +111,24 @@ const SingleProject = () => {
 			}
 			return addMember(userToAdd, id!);
 		},
-		onSuccess: () => {
+		onSuccess: async (_data, userId) => {
+			try {
+				// Notify the added user
+				const addedUser = users?.find(user => user.id === userId);
+				if (addedUser && addedUser.id) {
+					await notifyMembers(project.name, [addedUser.id], 0);
+					notification.success({
+						message: 'Success',
+						description: 'Member added and notified successfully!',
+					});
+				}
+			} catch (error) {
+				notification.error({
+					message: 'Notification Error',
+					description: `Member was added but notification failed: ${(error as Error).message}`,
+				});
+			}
 			queryClient.invalidateQueries({ queryKey: ['project', id] });
-			notification.success({
-				message: 'Success',
-				description: 'Member added successfully!',
-			});
 			setIsModalVisible(false);
 		},
 		onError: (error: unknown) => {
@@ -163,9 +176,16 @@ const SingleProject = () => {
 	const assignMutation = useMutation({
 		mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
 			assignMemberToTask(taskId, memberId),
-		onSuccess: () => {
+		onSuccess: async (_, { memberId }) => {
+			const assignedUser = project.members.find((user: User) => user.id === memberId);
+			if (assignedUser) {
+				await notifyMembers(project.name, [assignedUser.id], 2);
+				notification.success({
+					message: 'Success',
+					description: `${assignedUser.username} has been assigned to the task!`,
+				});
+			}
 			queryClient.invalidateQueries({ queryKey: ['tasks'] });
-			console.log('Member assigned successfully');
 		},
 		onError: (error) => {
 			console.error('Error assigning member', error);
@@ -181,12 +201,26 @@ const SingleProject = () => {
 	const toggleStatusMutation = useMutation({
 		mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
 			toggleTaskStatus(taskId, memberId),
-		onSuccess: () => {
+		onSuccess: async(_, { taskId }) => {
+		const updatedTask = tasks.find((task) => task.id === taskId);
+		if (updatedTask) {
+			const assignedUser = updatedTask.member
+				? project.members.find((member : User) => member.id === updatedTask.member)
+				: null;
+			if (assignedUser) {
+				await notifyMembers(project.name, [assignedUser.id], 4);
+				notification.success({
+					message: 'Task Status Updated',
+					description: `The status of task "${updatedTask.title}" has been updated successfully!`,
+				});
+			}
 			queryClient.invalidateQueries({ queryKey: ['tasks'] });
-			notification.success({
-				message: 'Success',
-				description: 'Task status updated successfully!',
+		} else {
+			notification.error({
+				message: 'Error',
+				description: `Failed to update task status: Task not found.`,
 			});
+		}
 		},
 		onError: (error: unknown) => {
 			notification.error({
@@ -204,12 +238,19 @@ const SingleProject = () => {
 
 	const removeMemberFromTaskMutation = useMutation({
 		mutationFn: (taskId: string) => removeMemberFromTask(taskId),
-		onSuccess: () => {
+		onSuccess: async (_, taskId) => {
+			const task = tasks.find(t => t.id === taskId);
+			if (task){
+				const removedMember = project.members.find((user: User) => user.id === task.member);
+				if (removedMember) {
+					await notifyMembers(project.name, [removedMember.id], 3);
+                    notification.success({
+                        message: 'Success',
+                        description: `${removedMember.username} has been removed from the task!`,
+                    });
+				}
+			}
 			queryClient.invalidateQueries({ queryKey: ['tasks'] });
-			notification.success({
-				message: 'Success',
-				description: 'Member removed from task successfully!',
-			});
 		},
 		onError: (error: unknown) => {
 			notification.error({
@@ -223,6 +264,36 @@ const SingleProject = () => {
 		removeMemberFromTaskMutation.mutate(taskId);
 	};
 
+	const deleteProjectMutation = useMutation({
+		mutationFn: () => deleteProject(id!), 
+		onSuccess: () => {
+			notification.success({
+				message: 'Project Deleted',
+				description: 'The project was deleted successfully!',
+			});
+			setTimeout(() => {
+				navigate('/');
+			}, 1000); 
+		},
+		onError: (error: unknown) => {
+			notification.error({
+				message: 'Error',
+				description: `Project deletion failed: ${(error as Error).message}`,
+			});
+		},
+	});
+	
+	const showDeleteConfirm = () => {
+		Modal.confirm({
+			title: 'Are you sure you want to delete this project?',
+			content: 'This action cannot be undone.',
+			okText: 'Yes',
+			okType: 'danger',
+			cancelText: 'No',
+			onOk: () => deleteProjectMutation.mutate(),
+		});
+	};
+
 	if (isLoading || usersLoading) {
 		return <p>Loading project data...</p>;
 	}
@@ -234,6 +305,7 @@ const SingleProject = () => {
 	if (!project) {
 		return <p>No project data available.</p>;
 	}
+
 
 	return (
 		<div>
@@ -390,6 +462,16 @@ const SingleProject = () => {
 					)}
 				/>
 			</Table>
+
+
+			<Button 
+				type="primary" 
+				danger 
+				onClick={() => showDeleteConfirm()}
+				style={{ marginTop: 20 }}
+			>
+				Delete Project
+			</Button>
 		</div>
 	);
 };

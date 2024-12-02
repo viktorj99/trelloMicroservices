@@ -13,6 +13,7 @@ import (
 )
 
 func main() {
+
 	// err := utils.LoadCommonPasswordsToConsul("/app/config/common_passwords.txt")
 	// if err != nil {
 	// 	log.Fatalf("Failed to load common passwords to Consul: %v", err)

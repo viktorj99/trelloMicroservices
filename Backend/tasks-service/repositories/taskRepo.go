@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -118,6 +119,62 @@ func (tr *TaskRepo) Update(ctx context.Context, id primitive.ObjectID, updateDat
 	result, err := tr.collection().UpdateOne(ctx, filter, updateData)
 	if err != nil {
 		tr.logger.Println("Error updating task:", err)
+		return nil, err
+	}
+
+	return result, nil
+}
+
+func (tr *TaskRepo) GetUnassignedTasks(ctx context.Context, projectId primitive.ObjectID) ([]model.Task, error) {
+	var tasks []model.Task
+
+	filter := bson.M{
+		"project": projectId,
+		"$or": []bson.M{
+			{"member": bson.M{"$exists": false}},
+			{"member": primitive.NilObjectID},
+			{"member": primitive.NewObjectIDFromTimestamp(time.Time{})},
+		},
+	}
+
+	cursor, err := tr.collection().Find(ctx, filter)
+	if err != nil {
+		tr.logger.Println("Error retrieving unassigned tasks:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	if err = cursor.All(ctx, &tasks); err != nil {
+		tr.logger.Println("Error decoding unassigned tasks:", err)
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+func (tr *TaskRepo) HasPendingOrInProgressTasks(ctx context.Context, memberId primitive.ObjectID) (bool, error) {
+	filter := bson.M{
+		"member": memberId,
+		"status": bson.M{
+			"$in": []model.Status{model.InProgress, model.Pending},
+		},
+	}
+
+	count, err := tr.collection().CountDocuments(ctx, filter)
+	if err != nil {
+		tr.logger.Println("Error checking pending or in-progress tasks for member:", err)
+		return false, err
+	}
+
+	return count > 0, nil
+}
+
+func (tr *TaskRepo) DeleteTasks(ctx context.Context, id primitive.ObjectID) (*mongo.DeleteResult, error) {
+	filter := bson.M{"_id": id}
+
+	result, err := tr.collection().DeleteOne(ctx, filter)
+	if err != nil {
+		tr.logger.Println("Error deleting task:", err)
 		return nil, err
 	}
 

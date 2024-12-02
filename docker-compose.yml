@@ -30,9 +30,11 @@ services:
         ports:
             - "8082:8080"
             - "8445:8443" # HTTPS
+            - "50053:50051"
         environment:
             - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
+            - NATS_URL=nats://nats:4222
         networks:
             - app-network
         volumes:
@@ -47,9 +49,11 @@ services:
         ports:
             - "8083:8080"
             - "8446:8443" # HTTPS
+            - "50052:50051"
         environment:
             - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
+            - NATS_URL=nats://nats:4222
         networks:
             - app-network
         volumes:
@@ -158,6 +162,15 @@ services:
             - "8088:8081"
         environment:
             - ME_CONFIG_MONGODB_URL=mongodb://mongo:27017
+        networks:
+            - app-network
+
+    nats:
+        image: nats:latest
+        ports:
+            - "4222:4222"  
+            - "6222:6222" 
+            - "8222:8222"  
         networks:
             - app-network
 

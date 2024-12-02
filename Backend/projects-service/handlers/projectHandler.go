@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	taskpb "pb/taskpb"
+	"projects-service/client"
 	"projects-service/model"
 	"projects-service/services"
 	"time"
@@ -15,12 +17,15 @@ import (
 )
 
 type ProjectHandler struct {
-	service *services.ProjectService
+	service    *services.ProjectService
+	taskClient *client.TaskClient
 }
 
-func NewProjectHandler(service *services.ProjectService) *ProjectHandler {
+// NewProjectHandler creates a new ProjectHandler instance
+func NewProjectHandler(service *services.ProjectService, taskClient *client.TaskClient) *ProjectHandler {
 	return &ProjectHandler{
-		service: service,
+		service:    service,
+		taskClient: taskClient,
 	}
 }
 
@@ -143,17 +148,33 @@ func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
-	updateData := bson.M{
-		"$push": bson.M{"members": member},
+	// Create a ProjectRequest for the gRPC call
+	req := &taskpb.ProjectRequest{
+		ProjectId: projectID,
 	}
 
-	if _, err := ph.service.UpdateProject(ctx, id, updateData); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	// Reuse the existing gRPC client from ProjectHandler
+	resp, err := ph.taskClient.GetUnassignedTasks(ctx, req)
+	if err != nil {
+		http.Error(w, "Error fetching unassigned tasks", http.StatusInternalServerError)
 		return
 	}
 
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode("Member added successfully")
+	if len(resp.Tasks) > 0 {
+		updateData := bson.M{
+			"$push": bson.M{"members": member},
+		}
+
+		if _, err := ph.service.UpdateProject(ctx, id, updateData); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode("Member added successfully")
+	} else {
+		http.Error(w, "No unassigned tasks found in the project", http.StatusConflict)
+	}
 }
 
 func (ph *ProjectHandler) RemoveMemberFromProject(w http.ResponseWriter, r *http.Request) {
@@ -194,6 +215,19 @@ func (ph *ProjectHandler) RemoveMemberFromProject(w http.ResponseWriter, r *http
 
 	if len(project.Members)-1 < project.MinMembers {
 		http.Error(w, "Cannot remove member: falls below minimum limit", http.StatusBadRequest)
+		return
+	}
+
+	// gRPC call to check if member has tasks in progress
+	taskReq := &taskpb.MemberRequest{MemberId: member.ID.Hex()}
+	resp, err := ph.taskClient.CheckMemberTasksInProgress(ctx, taskReq)
+	if err != nil {
+		http.Error(w, "Error checking member tasks", http.StatusInternalServerError)
+		return
+	}
+
+	if resp.GetValue() {
+		http.Error(w, "Cannot remove member that is assigned to a task.", http.StatusBadRequest)
 		return
 	}
 
@@ -260,4 +294,25 @@ func (handler *ProjectHandler) FindProjectsByManagerID(w http.ResponseWriter, r 
 	if err := json.NewEncoder(w).Encode(projects); err != nil {
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
+}
+
+func (ph ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
+    ctx := r.Context()
+    vars := mux.Vars(r)
+    idParam := vars["id"]
+
+    projectID, err := primitive.ObjectIDFromHex(idParam)
+    if err != nil {
+        http.Error(w, "Invalid project ID", http.StatusBadRequest)
+        return
+    }
+
+    err = ph.service.DeleteProjectWithTasks(ctx, projectID)
+    if err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+    w.WriteHeader(http.StatusAccepted)
+    json.NewEncoder(w).Encode("Delete request accepted")
 }

@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package projectservice;
+
+option go_package = "pb/projectpb";
+
+// The service definition
+service ProjectService {
+  rpc CheckMemberInProject (MemberRequest) returns (BoolResponse); // New RPC
+}
+
+// The request message for checking if a member is part of a project
+message MemberRequest {
+  string project_id = 1;
+  string member_id = 2;
+}
+
+// The response message for boolean result
+message BoolResponse {
+  bool value = 1;
+}

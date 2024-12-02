@@ -3,7 +3,9 @@ package services
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
+	"os"
 	"time"
 	"users-service/repositories"
 	"users-service/utils"
@@ -12,12 +14,26 @@ import (
 )
 
 var ctx = context.Background()
+var redisClient *redis.Client
 
-var redisClient = redis.NewClient(&redis.Options{
-	Addr:     "redis:6379",
-	Password: "",
-	DB:       0,
-})
+func init() {
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+
+	if redisHost == "" {
+		redisHost = "localhost"
+	}
+	if redisPort == "" {
+		redisPort = "6379"
+	}
+
+	redisAddr := fmt.Sprintf("%s:%s", redisHost, redisPort)
+	redisClient = redis.NewClient(&redis.Options{
+		Addr:     redisAddr,
+		Password: "",
+		DB:       0,
+	})
+}
 
 func SaveVerificationCode(code string, username string) error {
 	err := redisClient.Set(ctx, code, username, time.Minute*15).Err()
