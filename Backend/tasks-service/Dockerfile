@@ -7,6 +7,9 @@ WORKDIR /app
 # Copy go.mod and go.sum files
 COPY tasks-service/go.mod tasks-service/go.sum ./
 
+# Copy the pb directory
+COPY pb ./pb
+
 # Download dependencies
 RUN go mod download
 

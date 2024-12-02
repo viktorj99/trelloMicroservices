@@ -2,6 +2,7 @@ package helpers
 
 import (
 	"net/http"
+	taskpb "pb/taskpb"
 	userpb "pb/userpb"
 	"projects-service/auth"
 	"projects-service/handlers"
@@ -9,7 +10,7 @@ import (
 	"github.com/gorilla/mux"
 )
 
-func SetupRoutes(handler *handlers.ProjectHandler, userClient userpb.UserServiceClient) *mux.Router {
+func SetupRoutes(handler *handlers.ProjectHandler, userClient userpb.UserServiceClient, taskClient taskpb.TaskServiceClient) *mux.Router {
 	router := mux.NewRouter()
 	router.Use()
 

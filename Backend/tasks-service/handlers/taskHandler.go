@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
-
+	"tasks-service/client"
 	"tasks-service/model"
 	"tasks-service/services"
 
@@ -15,14 +15,16 @@ import (
 )
 
 type TaskHandler struct {
-	service *services.TaskService
-	logger  *log.Logger
+	service       *services.TaskService
+	logger        *log.Logger
+	projectClient *client.ProjectClient
 }
 
-func NewTaskHandler(service *services.TaskService, logger *log.Logger) *TaskHandler {
+func NewTaskHandler(service *services.TaskService, logger *log.Logger, projectClient *client.ProjectClient) *TaskHandler {
 	return &TaskHandler{
-		service: service,
-		logger:  logger,
+		service:       service,
+		logger:        logger,
+		projectClient: projectClient,
 	}
 }
 
@@ -92,6 +94,7 @@ func (h *TaskHandler) AssignMemberToTask(w http.ResponseWriter, r *http.Request)
 
 	ctx := r.Context()
 
+	// Convert taskID and memberID to ObjectID
 	taskObjectID, err := primitive.ObjectIDFromHex(taskID)
 	if err != nil {
 		h.logger.Println("Invalid task ID format:", err)
@@ -106,6 +109,34 @@ func (h *TaskHandler) AssignMemberToTask(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Convert taskObjectID to string for GetTaskById call
+	taskIDStr := taskObjectID.Hex()
+	task, err := h.service.GetTaskById(ctx, taskIDStr)
+	if err != nil {
+		h.logger.Println("Error fetching task:", err)
+		http.Error(w, "Failed to fetch task", http.StatusInternalServerError)
+		return
+	}
+
+	// Get projectID from task
+	projectID := task.Project.Hex()
+
+	// Check if the member is part of the project
+	resp, err := h.projectClient.CheckMemberInProject(ctx, projectID, memberID)
+	if err != nil {
+		h.logger.Println("Error checking if member is part of project:", err)
+		http.Error(w, "Failed to check member's project status", http.StatusInternalServerError)
+		return
+	}
+
+	// If the member is not part of the project, return an error
+	if !resp.GetValue() {
+		h.logger.Println("Member is not part of the project")
+		http.Error(w, "Member is not part of the project", http.StatusBadRequest)
+		return
+	}
+
+	// Proceed with assigning the member to the task
 	updateData := bson.M{
 		"$set": bson.M{
 			"member": memberObjectID,

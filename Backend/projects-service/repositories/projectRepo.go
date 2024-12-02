@@ -126,3 +126,22 @@ func (pr *ProjectRepo) Delete(ctx context.Context, id primitive.ObjectID) (*mong
 
 	return result, nil
 }
+
+func (pr *ProjectRepo) IsMemberInProject(ctx context.Context, projectId primitive.ObjectID, memberId primitive.ObjectID) (bool, error) {
+	var project model.Project
+	filter := bson.M{
+		"_id":     projectId,
+		"members": bson.M{"$elemMatch": bson.M{"_id": memberId}},
+	}
+
+	err := pr.collection().FindOne(ctx, filter).Decode(&project)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return false, nil
+		}
+		pr.logger.Println("Error checking if member is in project:", err)
+		return false, err
+	}
+
+	return true, nil
+}
