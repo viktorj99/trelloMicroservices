@@ -7,10 +7,14 @@ import { postData } from '../services/userService';
 import DOMPurify from 'dompurify';
 import ReCAPTCHA from 'react-google-recaptcha';
 
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
+
 const RegistrationPage: React.FC = () => {
 	const [form] = Form.useForm<RegistrationUser>();
 	const queryClient = useQueryClient();
-	const [captchaToken, setCaptchaToken] = useState<string | null>(null); 
+	const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+    const [passwordStrength, setPasswordStrength] = useState<string | null>(null);
+    const [strengthColor, setStrengthColor] = useState<string>('');
 	
 	const mutation = useMutation({
 		mutationFn: (user: RegistrationUser) => postData(user, captchaToken),
@@ -48,6 +52,28 @@ const RegistrationPage: React.FC = () => {
 	const onCaptchaChange = (token: string | null) => {
 		setCaptchaToken(token);
 	};
+
+    const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        if (passwordRegex.test(value)) {
+            if(value.length >= 24){
+                setPasswordStrength('Damn...');
+                setStrengthColor('purple');
+            } else if (value.length >= 16) {
+                setPasswordStrength('Very Strong!');
+                setStrengthColor('blue');
+            } else if (value.length >= 10) {
+                setPasswordStrength('Strong');
+                setStrengthColor('green');
+            } else {
+                setPasswordStrength('Good Enough...');
+                setStrengthColor('orange');
+            }
+          } else {
+                setPasswordStrength('Password must be at least 8 characters, include 1 uppercase, 1 lowercase letter, and 1 digit.');
+                setStrengthColor('red');
+          }
+      };
 
     return (
         <div style={{ maxWidth: 400, margin: '0 auto', padding: '2rem' }}>
@@ -113,12 +139,17 @@ const RegistrationPage: React.FC = () => {
                     label='Password'
                     rules={[
                         { required: true, message: 'Please input your password!' },
-                        { min: 6, message: 'Password must be at least 6 characters!' },
-                    ]}
+                      ]}
                     hasFeedback
                 >
-                    <Input.Password />
+                    <Input.Password onChange={handlePasswordChange} />
                 </Form.Item>
+                
+                {passwordStrength && (
+                    <div style={{ color: strengthColor, marginBottom: '16px' }}>
+                        {passwordStrength}
+                    </div>
+                )}
 
                 <Form.Item
                     name='confirm'
