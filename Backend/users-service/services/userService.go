@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"unicode"
 	"users-service/model"
 	"users-service/repositories"
 	"users-service/utils"
@@ -24,6 +25,7 @@ import (
 const recaptchaSecret = "6LeNfI8qAAAAAHUP6tTpTDb0uGtOwvKTDDIIPV6Y"
 
 var emailRegex = regexp.MustCompile(`^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$`)
+var passwordLengthRegex = regexp.MustCompile(`^[A-Za-z\d]{8,}$`)
 
 var validDomains = []string{"gmail.com", "yahoo.com", "outlook.com", "hotmail.com", "example.com"}
 
@@ -96,6 +98,10 @@ func RegisterUser(user model.User) error {
 
 	if !emailRegex.MatchString(user.Email) || !isValidDomain(user.Email) {
 		return errors.New("invalid email format or domain")
+	}
+
+	if !isValidPassword(user.Password) {
+		return errors.New("password must be at least 8 characters long, contain one uppercase letter, one lowercase letter and one digit")
 	}
 
 	hashedPassword, err := utils.HashPassword(user.Password)
@@ -212,4 +218,22 @@ func VerifyCaptcha(captchaToken string) error {
 	}
 
 	return nil
+}
+
+func isValidPassword(password string) bool {
+	// Check the overall length
+	if !passwordLengthRegex.MatchString(password) {
+		return false
+	}
+
+	// Check for at least one lowercase letter
+	hasLower := strings.IndexFunc(password, unicode.IsLower) >= 0
+
+	// Check for at least one uppercase letter
+	hasUpper := strings.IndexFunc(password, unicode.IsUpper) >= 0
+
+	// Check for at least one digit
+	hasDigit := strings.IndexFunc(password, unicode.IsDigit) >= 0
+
+	return hasLower && hasUpper && hasDigit
 }
