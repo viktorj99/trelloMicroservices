@@ -80,3 +80,11 @@ func (ps *ProjectService) DeleteProject(ctx context.Context, id primitive.Object
 
 	return ps.repo.Delete(ctx, id)
 }
+
+func (ps *ProjectService) GetProjectsByUserID(ctx context.Context, userID primitive.ObjectID) ([]model.Project, error) {
+	return ps.repo.GetProjectsByUserID(ctx, userID)
+}
+
+func (ps *ProjectService) GetProjectsByManagerID(ctx context.Context, userID primitive.ObjectID) ([]model.Project, error) {
+	return ps.repo.GetProjectsByManagerID(ctx, userID)
+}

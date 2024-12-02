@@ -39,6 +39,7 @@ require (
 require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/golang/snappy v0.0.4 // indirect
+	github.com/gorilla/mux v1.8.1
 	github.com/hashicorp/consul/api v1.30.0
 	github.com/joho/godotenv v1.5.1
 	github.com/klauspost/compress v1.13.6 // indirect

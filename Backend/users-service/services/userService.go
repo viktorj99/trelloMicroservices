@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -15,6 +16,7 @@ import (
 	"github.com/dgrijalva/jwt-go"
 	"github.com/hashicorp/consul/api"
 	"github.com/microcosm-cc/bluemonday"
+	"go.mongodb.org/mongo-driver/mongo"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -181,4 +183,8 @@ func GetUserByEmail(email string) (model.User, error) {
 	}
 
 	return user, nil
+}
+
+func DeleteUser(ctx context.Context, userId string) (*mongo.DeleteResult, error) {
+	return repositories.DeleteUserById(ctx, userId)
 }

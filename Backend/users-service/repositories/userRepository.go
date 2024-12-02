@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"time"
 	"users-service/model"
@@ -214,4 +215,27 @@ func DeleteUserByUsername(username string) error {
 
 	log.Printf("User with username %s deleted from MongoDB", username)
 	return nil
+}
+
+func DeleteUserById(ctx context.Context, userId string) (*mongo.DeleteResult, error) {
+	fmt.Println("USERID", userId)
+	objID, err := primitive.ObjectIDFromHex(userId)
+	if err != nil {
+		return nil, errors.New("invalid user ID format")
+	}
+
+	filter := bson.M{"_id": objID}
+
+	result, err := userCollection.DeleteOne(ctx, filter)
+	if err != nil {
+		log.Printf("Error deleting user by ID: %v", err)
+		return nil, err
+	}
+
+	if result.DeletedCount == 0 {
+		return nil, errors.New("user not found")
+	}
+
+	log.Printf("User with ID %s deleted from MongoDB", userId)
+	return result, nil
 }

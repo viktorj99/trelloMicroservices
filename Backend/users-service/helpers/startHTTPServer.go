@@ -18,6 +18,7 @@ func StartHTTPServer() {
 	http.HandleFunc("/users/members", handlers.GetAllUserMembers)
 	http.HandleFunc("/users/verification", handlers.VerifyCode)
 	http.HandleFunc("/users/", handlers.GetUserByID)
+	http.HandleFunc("/users/delete/", handlers.DeleteUserById)
 	http.HandleFunc("/users/forgot-password", handlers.ForgotPassword)
 	http.HandleFunc("/users/forgot-password/change", handlers.ChangeForgotPassword)
 	http.HandleFunc("/users/magic-link/request", handlers.RequestMagicLinkHandler)
@@ -33,5 +34,5 @@ func StartHTTPServer() {
 	})
 
 	log.Println("HTTPS server is running on port 8443...")
-	log.Fatal(http.ListenAndServeTLS(":8443", "certificates/cert.crt", "certificates/cert.key", nil)) // HTTPS server pokretanje
+	log.Fatal(http.ListenAndServeTLS(":8443", "certificates/cert.crt", "certificates/cert.key", nil))
 }

@@ -126,3 +126,45 @@ func (pr *ProjectRepo) Delete(ctx context.Context, id primitive.ObjectID) (*mong
 
 	return result, nil
 }
+
+func (pr *ProjectRepo) GetProjectsByUserID(ctx context.Context, userID primitive.ObjectID) ([]model.Project, error) {
+    fmt.Println("UserID:", userID)
+    
+    filter := bson.M{"members._id": userID}
+
+    var projects []model.Project
+    cursor, err := pr.collection().Find(ctx, filter)
+    if err != nil {
+        pr.logger.Println("Error retrieving projects by user ID:", err)
+        return nil, err
+    }
+    defer cursor.Close(ctx)
+
+    if err := cursor.All(ctx, &projects); err != nil {
+        pr.logger.Println("Error decoding projects by user ID:", err)
+        return nil, err
+    }
+
+    return projects, nil
+}
+
+func (pr *ProjectRepo) GetProjectsByManagerID(ctx context.Context, userID primitive.ObjectID) ([]model.Project, error) {
+    fmt.Println("UserID:", userID)
+    
+    filter := bson.M{"manager._id": userID}
+
+    var projects []model.Project
+    cursor, err := pr.collection().Find(ctx, filter)
+    if err != nil {
+        pr.logger.Println("Error retrieving projects by user ID:", err)
+        return nil, err
+    }
+    defer cursor.Close(ctx)
+
+    if err := cursor.All(ctx, &projects); err != nil {
+        pr.logger.Println("Error decoding projects by user ID:", err)
+        return nil, err
+    }
+
+    return projects, nil
+}

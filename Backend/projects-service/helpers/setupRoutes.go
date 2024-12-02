@@ -18,6 +18,8 @@ func SetupRoutes(handler *handlers.ProjectHandler, userClient userpb.UserService
 	router.Handle("/projects/create", auth.EnableManager(http.HandlerFunc(handler.CreateProject))).Methods("POST", "OPTIONS")
 	router.Handle("/projects/{id}/add-member", auth.EnableManager(http.HandlerFunc(handler.AddMemberToProject))).Methods("POST", "OPTIONS")
 	router.Handle("/projects/{id}/remove-member", auth.EnableManager(http.HandlerFunc(handler.RemoveMemberFromProject))).Methods("POST", "OPTIONS")
+	router.Handle("/projects/user/{id}", http.HandlerFunc(handler.FindProjectsByUserID)).Methods("GET")
+	router.Handle("/projects/manager/{id}", http.HandlerFunc(handler.FindProjectsByManagerID)).Methods("GET")
 
 	router.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
 		handlers.GetUsersHandler(w, r, userClient)

@@ -5,15 +5,15 @@ services:
             dockerfile: users-service/Dockerfile
         ports:
             - "8081:8080"
-            - "8444:8443" # HTTPS
+            - "8444:8443"
             - "50051:50051"
         environment:
-            - MONGO_DB_URI=mongodb://mongo:27017
-            - PORT=8080
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
-            - CONSUL_DB=consul
-            - CONSUL_DB_PORT=8500
+            MONGO_DB_URI: mongodb://mongo:27017
+            PORT: 8080
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            CONSUL_DB: consul
+            CONSUL_DB_PORT: 8500
         networks:
             - app-network
         volumes:

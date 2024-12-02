@@ -96,6 +96,9 @@ const Navbar: React.FC = () => {
 						<Menu.Item key='projects' icon={<SettingOutlined />}>
 							<Link to='/projects'>Projects</Link>
 						</Menu.Item>
+						<Menu.Item key='profile' icon={<SettingOutlined />}>
+							<Link to='/profile'>Profile</Link>
+						</Menu.Item>
 						<Menu.Item key='notifications' icon={<BellOutlined />} onClick={openDrawer}>
 							<Badge
 								count={
