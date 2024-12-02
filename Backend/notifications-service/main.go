@@ -46,8 +46,9 @@ func main() {
 		created_at TIMESTAMP,
 		message TEXT,
 		is_read BOOLEAN,
-		PRIMARY KEY (user_id, year_month, notification_id)
-	) WITH CLUSTERING ORDER BY (year_month ASC, notification_id ASC);`
+		PRIMARY KEY (user_id, year_month, created_at, notification_id)
+
+	) WITH CLUSTERING ORDER BY (year_month ASC, created_at DESC ,notification_id ASC);`
 
 	if err := session.Query(createTableQuery).Exec(); err != nil {
 		log.Fatal("Error creating table:", err)
