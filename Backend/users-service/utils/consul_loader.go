@@ -10,8 +10,14 @@ import (
 )
 
 func LoadCommonPasswordsToConsul(filepath string) error {
+	// Retrieve environment variables for Consul
+	consulAddress := os.Getenv("CONSUL_DB")
+	consulPort := os.Getenv("CONSUL_DB_PORT")
+
+	consulURL := fmt.Sprintf("%s:%s", consulAddress, consulPort)
+
 	config := api.DefaultConfig()
-	config.Address = "consul:8500" // Use Consul address from Docker Compose
+	config.Address = consulURL
 
 	client, err := api.NewClient(config)
 	if err != nil {

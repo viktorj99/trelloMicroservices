@@ -7,16 +7,18 @@ import (
 	"users-service/helpers"
 	"users-service/repositories"
 	"users-service/services"
+	"users-service/utils"
 
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
 func main() {
-	// err := utils.LoadCommonPasswordsToConsul("/app/config/common_passwords.txt")
-	// if err != nil {
-	// 	log.Fatalf("Failed to load common passwords to Consul: %v", err)
-	// }
+
+	err := utils.LoadCommonPasswordsToConsul("/app/config/common_passwords.txt")
+	if err != nil {
+		log.Fatalf("Failed to load common passwords to Consul: %v", err)
+	}
 
 	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)
 
