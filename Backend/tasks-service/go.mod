@@ -8,6 +8,7 @@ require (
 	go.mongodb.org/mongo-driver v1.17.1
 	google.golang.org/grpc v1.68.0
 	google.golang.org/protobuf v1.35.2
+	pb/projectpb v0.0.0-00010101000000-000000000000
 	pb/taskpb v0.0.0-00010101000000-000000000000
 )
 
@@ -28,3 +29,5 @@ require (
 )
 
 replace pb/taskpb => ./pb/taskpb
+
+replace pb/projectpb => ./pb/projectpb

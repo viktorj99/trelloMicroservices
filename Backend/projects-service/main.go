@@ -11,19 +11,24 @@ import (
 )
 
 func main() {
+	// Loading environment variables (if needed)
 	// helpers.LoadingEnv()
 
 	ctx := context.Background()
 	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)
 
-	// Povezivanje sa MongoDB
+	// Connect to MongoDB
 	mongoClient := helpers.ConnectMongoDB(ctx, logger)
 	defer mongoClient.Disconnect(ctx)
 
-	// Povezivanje sa gRPC user-service preko novog klijenta
+	// Connect to user service
 	userClient := client.ConnectToUserService(logger)
 	defer userClient.Close()
 
+	// Start the gRPC server for the project service
+	helpers.StartGRPCServer()
+
+	// Connect to task service before starting gRPC server
 	logger.Println("Connecting to task service...")
 	taskServiceClient, err := client.NewTaskClient("tasks-service:50051")
 	if err != nil {
@@ -32,11 +37,11 @@ func main() {
 	logger.Println("Connected to task service.")
 	defer taskServiceClient.Close()
 
-	// Inicijalizacija servisa
+	// Initialize the service and handlers
 	service := helpers.InitializeService(ctx, logger)
 	handler := handlers.NewProjectHandler(service, taskServiceClient)
 
-	// Postavljanje ruta za Project REST API i GRPC
+	// Setup routes for Project REST API and gRPC
 	router := helpers.SetupRoutes(handler, userClient.Client, taskServiceClient)
 	helpers.RunServer(router, logger)
 

@@ -8,6 +8,7 @@ import (
 	"os"
 	taskpb "pb/taskpb"
 	"strings"
+	"tasks-service/client"
 	"tasks-service/handlers"
 	"tasks-service/repositories"
 	"tasks-service/server"
@@ -33,24 +34,54 @@ func main() {
 		logger.Fatal("MONGO_DB_URI is not set")
 	}
 
-	client, err := mongo.NewClient(options.Client().ApplyURI(dbURI))
+	mongoClient, err := mongo.NewClient(options.Client().ApplyURI(dbURI))
 	if err != nil {
 		logger.Fatal("Failed to parse MongoDB URI: ", err)
 	}
 
 	ctx := context.Background()
-	err = client.Connect(ctx)
+	err = mongoClient.Connect(ctx)
 	if err != nil {
 		logger.Fatal("Failed to connect to MongoDB: ", err)
 	}
-	defer client.Disconnect(ctx)
+	defer mongoClient.Disconnect(ctx)
 
 	taskRepo, err := repositories.NewTaskRepo(ctx, logger, "task")
 	if err != nil {
 		logger.Fatal("Failed to create repository: ", err)
 	}
+
+	// Channels to catch server errors
+	errChan := make(chan error)
+
+	// Start gRPC server
+	go func() {
+		lis, err := net.Listen("tcp", ":50051")
+		if err != nil {
+			log.Fatalf("failed to listen: %v", err)
+		}
+
+		grpcServer := grpc.NewServer()
+		taskServer := server.NewTaskServer(taskRepo)
+		taskpb.RegisterTaskServiceServer(grpcServer, taskServer)
+
+		logger.Println("gRPC server is running on port 50051...")
+
+		if err := grpcServer.Serve(lis); err != nil {
+			log.Fatalf("failed to serve gRPC server: %v", err)
+		}
+	}()
+
+	logger.Println("Connecting to project service...")
+	projectServiceClient, err := client.NewProjectClient("projects-service:50051")
+	if err != nil {
+		logger.Fatalf("could not connect to project service: %v", err)
+	}
+	logger.Println("Connected to project service.")
+	defer projectServiceClient.Close()
+
 	taskService := services.NewTaskService(taskRepo, logger)
-	taskHandler := handlers.NewTaskHandler(taskService, logger)
+	taskHandler := handlers.NewTaskHandler(taskService, logger, projectServiceClient)
 
 	router := mux.NewRouter()
 
@@ -80,9 +111,6 @@ func main() {
 		httpsPort = "8443" // Default HTTPS port
 	}
 
-	// Channels to catch server errors
-	errChan := make(chan error)
-
 	// Start HTTP server
 	go func() {
 		logger.Printf("HTTP server is starting on port %s...", httpPort)
@@ -93,21 +121,6 @@ func main() {
 	go func() {
 		logger.Printf("HTTPS server is starting on port %s...", httpsPort)
 		errChan <- http.ListenAndServeTLS(":"+httpsPort, "certificates/cert.crt", "certificates/cert.key", router)
-	}()
-
-	// Start gRPC server
-	go func() {
-		lis, err := net.Listen("tcp", ":50051")
-		if err != nil {
-			log.Fatalf("failed to listen: %v", err)
-		}
-
-		grpcServer := grpc.NewServer()
-		taskServer := server.NewTaskServer(taskRepo)
-		taskpb.RegisterTaskServiceServer(grpcServer, taskServer)
-
-		logger.Println("gRPC server is running on port 50051...")
-		errChan <- grpcServer.Serve(lis)
 	}()
 
 	// Wait for an error to occur

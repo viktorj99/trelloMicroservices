@@ -9,7 +9,7 @@ import "google/protobuf/wrappers.proto";
 // The service definition
 service TaskService {
   rpc GetUnassignedTasks (ProjectRequest) returns (TaskResponse);
-  rpc CheckMemberTasksInProgress (MemberRequest) returns (BoolResponse); // New RPC
+  rpc CheckMemberTasksInProgress (MemberRequest) returns (BoolResponse); 
 }
 
 // The request message containing the project ID

@@ -4,6 +4,7 @@ go 1.23.3
 
 require (
 	go.mongodb.org/mongo-driver v1.17.1
+	pb/projectpb v0.0.0-00010101000000-000000000000
 	pb/taskpb v0.0.0-00010101000000-000000000000
 	pb/userpb v0.0.0-00010101000000-000000000000
 )
@@ -34,3 +35,5 @@ require (
 replace pb/userpb => ./pb/userpb
 
 replace pb/taskpb => ./pb/taskpb
+
+replace pb/projectpb => ./pb/projectpb
