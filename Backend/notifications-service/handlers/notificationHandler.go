@@ -60,11 +60,11 @@ func (h *NotificationHandler) NotifyMembersHandler(w http.ResponseWriter, r *htt
 		case "/notifications/project/remove":
 			message = "You have been removed from the project: " + req.ProjectName
 		case "/notifications/task/add":
-			message = "You have been removed from a Task in the project: " + req.ProjectName
+			message = "You have been assigned to a Task in the project: " + req.ProjectName
 		case "/notifications/task/remove":
 			message = "You have been removed from a Task in the project: " + req.ProjectName
 		case "/notifications/task/status":
-			message = "The status of a task you are assigned to has changed in the project: " + req.ProjectName
+			message = "The Status of a Task you are assigned on has changed in the project: " + req.ProjectName
 		default:
 			http.Error(w, "Unknown action", http.StatusBadRequest)
 			return

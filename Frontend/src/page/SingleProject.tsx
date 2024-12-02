@@ -110,12 +110,24 @@ const SingleProject = () => {
 			}
 			return addMember(userToAdd, id!);
 		},
-		onSuccess: () => {
+		onSuccess: async (_data, userId) => {
+			try {
+				// Notify the added user
+				const addedUser = users?.find(user => user.id === userId);
+				if (addedUser && addedUser.id) {
+					await notifyMembers(project.name, [addedUser.id], 0);
+					notification.success({
+						message: 'Success',
+						description: 'Member added and notified successfully!',
+					});
+				}
+			} catch (error) {
+				notification.error({
+					message: 'Notification Error',
+					description: `Member was added but notification failed: ${(error as Error).message}`,
+				});
+			}
 			queryClient.invalidateQueries({ queryKey: ['project', id] });
-			notification.success({
-				message: 'Success',
-				description: 'Member added successfully!',
-			});
 			setIsModalVisible(false);
 		},
 		onError: (error: unknown) => {
@@ -163,9 +175,16 @@ const SingleProject = () => {
 	const assignMutation = useMutation({
 		mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
 			assignMemberToTask(taskId, memberId),
-		onSuccess: () => {
+		onSuccess: async (_, { memberId }) => {
+			const assignedUser = project.members.find((user: User) => user.id === memberId);
+			if (assignedUser) {
+				await notifyMembers(project.name, [assignedUser.id], 2);
+				notification.success({
+					message: 'Success',
+					description: `${assignedUser.username} has been assigned to the task!`,
+				});
+			}
 			queryClient.invalidateQueries({ queryKey: ['tasks'] });
-			console.log('Member assigned successfully');
 		},
 		onError: (error) => {
 			console.error('Error assigning member', error);
@@ -181,12 +200,26 @@ const SingleProject = () => {
 	const toggleStatusMutation = useMutation({
 		mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
 			toggleTaskStatus(taskId, memberId),
-		onSuccess: () => {
+		onSuccess: async(_, { taskId }) => {
+		const updatedTask = tasks.find((task) => task.id === taskId);
+		if (updatedTask) {
+			const assignedUser = updatedTask.member
+				? project.members.find((member : User) => member.id === updatedTask.member)
+				: null;
+			if (assignedUser) {
+				await notifyMembers(project.name, [assignedUser.id], 4);
+				notification.success({
+					message: 'Task Status Updated',
+					description: `The status of task "${updatedTask.title}" has been updated successfully!`,
+				});
+			}
 			queryClient.invalidateQueries({ queryKey: ['tasks'] });
-			notification.success({
-				message: 'Success',
-				description: 'Task status updated successfully!',
+		} else {
+			notification.error({
+				message: 'Error',
+				description: `Failed to update task status: Task not found.`,
 			});
+		}
 		},
 		onError: (error: unknown) => {
 			notification.error({
@@ -204,12 +237,19 @@ const SingleProject = () => {
 
 	const removeMemberFromTaskMutation = useMutation({
 		mutationFn: (taskId: string) => removeMemberFromTask(taskId),
-		onSuccess: () => {
+		onSuccess: async (_, taskId) => {
+			const task = tasks.find(t => t.id === taskId);
+			if (task){
+				const removedMember = project.members.find((user: User) => user.id === task.member);
+				if (removedMember) {
+					await notifyMembers(project.name, [removedMember.id], 3);
+                    notification.success({
+                        message: 'Success',
+                        description: `${removedMember.username} has been removed from the task!`,
+                    });
+				}
+			}
 			queryClient.invalidateQueries({ queryKey: ['tasks'] });
-			notification.success({
-				message: 'Success',
-				description: 'Member removed from task successfully!',
-			});
 		},
 		onError: (error: unknown) => {
 			notification.error({
