@@ -123,3 +123,27 @@ export const getAllProjects = async () => {
         }
     }
 };
+
+export const deleteProject = async (projectId: string) => {
+    const token = getToken();
+    const url = `${BASE_URL}/${projectId}`; 
+
+    try {
+        const response = await axios.delete(url, {
+            headers: {
+                Authorization: `Bearer ${token}`,
+            },
+        });
+        return response.data;
+    } catch (error) {
+        if (axios.isAxiosError(error)) {
+            console.error('Error response:', error.response?.data);
+            throw new Error(
+                error.response?.data?.message || 'An error occurred while deleting the project.'
+            );
+        } else {
+            console.error('Unexpected error:', error);
+            throw new Error('An unexpected error occurred.');
+        }
+    }
+};

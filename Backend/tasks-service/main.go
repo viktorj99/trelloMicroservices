@@ -80,7 +80,18 @@ func main() {
 	logger.Println("Connected to project service.")
 	defer projectServiceClient.Close()
 
-	taskService := services.NewTaskService(taskRepo, logger)
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		natsURL = "nats://nats:4222"
+	}
+
+	natsClient := client.NewNATSClient(natsURL)
+	defer natsClient.Conn.Close()
+
+	taskService := services.NewTaskService(taskRepo, natsClient, logger)
+
+	go taskService.Start()
+
 	taskHandler := handlers.NewTaskHandler(taskService, logger, projectServiceClient)
 
 	router := mux.NewRouter()

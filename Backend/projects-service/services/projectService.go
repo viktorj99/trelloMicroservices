@@ -2,21 +2,31 @@ package services
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
+	"os"
 	"projects-service/model"
 	"projects-service/repositories"
+	"time"
 
+	"github.com/nats-io/nats.go"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 )
 
 type ProjectService struct {
-	repo *repositories.ProjectRepo
+	repo      *repositories.ProjectRepo
+	publisher *nats.Conn
 }
 
-func NewProjectService(repo *repositories.ProjectRepo) *ProjectService {
-	return &ProjectService{repo: repo}
+func NewProjectService(repo *repositories.ProjectRepo, nc *nats.Conn) *ProjectService {
+	return &ProjectService{
+		repo:      repo,
+		publisher: nc,
+	}
 }
 
 func (ps *ProjectService) GetAllProjects(ctx context.Context) ([]model.Project, error) {
@@ -73,10 +83,67 @@ func (ps *ProjectService) UpdateProject(ctx context.Context, id primitive.Object
 	return ps.repo.Update(ctx, id, updateData)
 }
 
-func (ps *ProjectService) DeleteProject(ctx context.Context, id primitive.ObjectID) (*mongo.DeleteResult, error) {
-	if id.IsZero() {
-		return nil, errors.New("invalid project ID")
+func (ps *ProjectService) DeleteProjectWithTasks(ctx context.Context, projectID primitive.ObjectID) error {
+	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)
+	logger.Printf("Starting to delete project with ID: %s", projectID.Hex())
+
+	_, err := ps.GetProjectById(ctx, projectID)
+	if err != nil {
+		logger.Printf("Project not found: %v", err)
+		return err
 	}
 
-	return ps.repo.Delete(ctx, id)
+	responseCh := make(chan *nats.Msg, 1)
+	sub, err := ps.publisher.ChanSubscribe("tasks.deleted", responseCh)
+	if err != nil {
+		logger.Printf("Failed to subscribe to confirmation channel: %v", err)
+		return fmt.Errorf("failed to subscribe to confirmation channel: %w", err)
+	}
+	defer sub.Unsubscribe()
+
+	// Ensure subscription is ready
+	err = ps.publisher.Flush()
+	if err != nil {
+		logger.Printf("NATS flush error: %v", err)
+		return err
+	}
+
+	logger.Printf("Subscribed to tasks.deleted and ready to publish tasks.delete event")
+
+	payload, _ := json.Marshal(map[string]string{"project_id": projectID.Hex()})
+	err = ps.publisher.Publish("tasks.delete", payload)
+	if err != nil {
+		logger.Printf("Failed to publish delete tasks event: %v", err)
+		return fmt.Errorf("failed to publish delete tasks event: %w", err)
+	}
+	logger.Printf("Published tasks.delete event for project ID: %s", projectID.Hex())
+
+	select {
+	case msg := <-responseCh:
+		logger.Println("Received message from tasks.deleted topic")
+		var event map[string]string
+		if err := json.Unmarshal(msg.Data, &event); err != nil {
+			logger.Printf("Invalid confirmation message format: %v", err)
+			return fmt.Errorf("invalid confirmation message format: %w", err)
+		}
+
+		if event["project_id"] != projectID.Hex() {
+			logger.Printf("Confirmation received for incorrect project ID: %s", event["project_id"])
+			return fmt.Errorf("confirmation received for incorrect project ID")
+		}
+
+		logger.Printf("Successfully received confirmation for project ID: %s", projectID.Hex())
+		_, err = ps.repo.Delete(ctx, projectID)
+		if err != nil {
+			logger.Printf("Failed to delete project: %v", err)
+			return fmt.Errorf("failed to delete project: %w", err)
+		}
+
+	case <-time.After(20 * time.Second):
+		logger.Printf("Timeout waiting for task deletion confirmation for project ID: %s", projectID.Hex())
+		return fmt.Errorf("timeout waiting for task deletion confirmation")
+	}
+
+	logger.Printf("Successfully deleted project with ID: %s", projectID.Hex())
+	return nil
 }
