@@ -1,6 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
-import { addMember, getProject, deleteMember } from '../services/projectService';
+import { useNavigate, useParams } from 'react-router-dom';
+import { addMember, getProject, deleteMember, deleteProject } from '../services/projectService';
 import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
 import { User } from '../entities/models/User';
 import { useState, useEffect } from 'react';
@@ -28,6 +28,7 @@ const SingleProject = () => {
 
 	const [userRole, setUserRole] = useState<Role | null>(null);
 	const [userId, setUserId] = useState<string | null>(null);
+	const navigate = useNavigate();
 
 	const {
 		data: project,
@@ -263,6 +264,36 @@ const SingleProject = () => {
 		removeMemberFromTaskMutation.mutate(taskId);
 	};
 
+	const deleteProjectMutation = useMutation({
+		mutationFn: () => deleteProject(id!), 
+		onSuccess: () => {
+			notification.success({
+				message: 'Project Deleted',
+				description: 'The project was deleted successfully!',
+			});
+			setTimeout(() => {
+				navigate('/');
+			}, 1000); 
+		},
+		onError: (error: unknown) => {
+			notification.error({
+				message: 'Error',
+				description: `Project deletion failed: ${(error as Error).message}`,
+			});
+		},
+	});
+	
+	const showDeleteConfirm = () => {
+		Modal.confirm({
+			title: 'Are you sure you want to delete this project?',
+			content: 'This action cannot be undone.',
+			okText: 'Yes',
+			okType: 'danger',
+			cancelText: 'No',
+			onOk: () => deleteProjectMutation.mutate(),
+		});
+	};
+
 	if (isLoading || usersLoading) {
 		return <p>Loading project data...</p>;
 	}
@@ -274,6 +305,7 @@ const SingleProject = () => {
 	if (!project) {
 		return <p>No project data available.</p>;
 	}
+
 
 	return (
 		<div>
@@ -430,6 +462,16 @@ const SingleProject = () => {
 					)}
 				/>
 			</Table>
+
+
+			<Button 
+				type="primary" 
+				danger 
+				onClick={() => showDeleteConfirm()}
+				style={{ marginTop: 20 }}
+			>
+				Delete Project
+			</Button>
 		</div>
 	);
 };

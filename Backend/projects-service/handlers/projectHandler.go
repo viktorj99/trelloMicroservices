@@ -231,7 +231,6 @@ func (ph *ProjectHandler) RemoveMemberFromProject(w http.ResponseWriter, r *http
 		return
 	}
 
-	// Proceed with removing the member
 	updateData := bson.M{
 		"$pull": bson.M{"members": bson.M{"_id": member.ID}},
 	}
@@ -243,4 +242,25 @@ func (ph *ProjectHandler) RemoveMemberFromProject(w http.ResponseWriter, r *http
 
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode("Member removed successfully")
+}
+
+func (ph *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	idParam := vars["id"]
+
+	projectID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		http.Error(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
+
+	err = ph.service.DeleteProjectWithTasks(ctx, projectID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode("Delete request accepted")
 }

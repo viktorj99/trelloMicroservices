@@ -168,3 +168,15 @@ func (tr *TaskRepo) HasPendingOrInProgressTasks(ctx context.Context, memberId pr
 
 	return count > 0, nil
 }
+
+func (tr *TaskRepo) DeleteTasks(ctx context.Context, id primitive.ObjectID) (*mongo.DeleteResult, error) {
+	filter := bson.M{"_id": id}
+
+	result, err := tr.collection().DeleteOne(ctx, filter)
+	if err != nil {
+		tr.logger.Println("Error deleting task:", err)
+		return nil, err
+	}
+
+	return result, nil
+}

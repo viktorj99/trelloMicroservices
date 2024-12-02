@@ -37,8 +37,16 @@ func main() {
 	logger.Println("Connected to task service.")
 	defer taskServiceClient.Close()
 
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		natsURL = "nats://nats:4222"
+	}
+
+	natsClient := client.NewNATSClient(natsURL)
+	defer natsClient.Conn.Close()
+
 	// Initialize the service and handlers
-	service := helpers.InitializeService(ctx, logger)
+	service := helpers.InitializeService(ctx, logger, natsURL)
 	handler := handlers.NewProjectHandler(service, taskServiceClient)
 
 	// Setup routes for Project REST API and gRPC
