@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import DOMPurify from 'dompurify';
 import { useNavigate, useParams } from 'react-router-dom';
 import { addMember, getProject, deleteMember, deleteProject } from '../services/projectService';
 import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
@@ -16,6 +17,7 @@ import { Task } from '../entities/models/Task';
 import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
 import { notifyMembers } from '../services/notificationService';
+
 const { Option } = Select;
 
 const SingleProject = () => {
@@ -170,8 +172,14 @@ const SingleProject = () => {
 	});
 
 	const handleCreateTask = (values: any) => {
-		taskMutation.mutate(values);
-	};
+    const sanitizedValues = {
+        ...values,
+        title: DOMPurify.sanitize(values.title),
+        description: DOMPurify.sanitize(values.description),
+    };
+    taskMutation.mutate(sanitizedValues);
+};
+
 
 	const assignMutation = useMutation({
 		mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
@@ -350,42 +358,42 @@ const SingleProject = () => {
 			</Modal>
 
 			{/* Modal for creating a task */}
-			<Modal
-				title='Create Task'
-				open={isTaskModalVisible}
-				onCancel={() => setIsTaskModalVisible(false)}
-				footer={null}
-			>
-				<Form form={taskForm} layout='vertical' onFinish={handleCreateTask}>
-					<Form.Item
-						label='Task Title'
-						name='title'
-						rules={[{ required: true, message: 'Please enter the task title!' }]}
-					>
-						<Input placeholder='Enter task title' />
-					</Form.Item>
+<Modal
+    title='Create Task'
+    open={isTaskModalVisible}
+    onCancel={() => setIsTaskModalVisible(false)}
+    footer={null}
+>
+    <Form form={taskForm} layout='vertical' onFinish={handleCreateTask}>
+        <Form.Item
+            label='Task Title'
+            name='title'
+            rules={[{ required: true, message: 'Please enter the task title!' }]}
+        >
+            <Input placeholder='Enter task title' />
+        </Form.Item>
 
-					<Form.Item
-						label='Description'
-						name='description'
-						rules={[{ required: true, message: 'Please enter the description!' }]}
-					>
-						<Input.TextArea placeholder='Enter task description' />
-					</Form.Item>
+        <Form.Item
+            label='Description'
+            name='description'
+            rules={[{ required: true, message: 'Please enter the description!' }]}
+        >
+            <Input.TextArea placeholder='Enter task description' />
+        </Form.Item>
 
-					<Form.Item name='status' initialValue='PENDING' hidden>
-						<Input type='hidden' />
-					</Form.Item>
+        <Form.Item name='status' initialValue='PENDING' hidden>
+            <Input type='hidden' />
+        </Form.Item>
 
-					<Form.Item label='Project ID' name='project' initialValue={id} hidden />
+        <Form.Item label='Project ID' name='project' initialValue={id} hidden />
 
-					<Form.Item>
-						<Button type='primary' htmlType='submit'>
-							Create Task
-						</Button>
-					</Form.Item>
-				</Form>
-			</Modal>
+        <Form.Item>
+            <Button type='primary' htmlType='submit'>
+                Create Task
+            </Button>
+        </Form.Item>
+    </Form>
+</Modal>
 
 			{/* Tasks Table */}
 			<h2>Tasks</h2>

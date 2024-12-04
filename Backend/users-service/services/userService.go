@@ -161,7 +161,7 @@ func GenerateJWTToken(id, username, role string) (string, error) {
 		return "", errors.New("invalid role")
 	}
 
-	expirationTime := time.Now().Add(24 * time.Hour)
+	expirationTime := time.Now().Add(30 * time.Minute)
 
 	claims := &Claims{
 		ID:       id,
