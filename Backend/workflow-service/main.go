@@ -1,0 +1,68 @@
+package main
+
+import (
+	"log"
+	"net/http"
+	"os"
+	"workflow/handlers"
+	"workflow/repositories"
+	"workflow/services"
+
+	"github.com/gorilla/mux"
+	"github.com/joho/godotenv"
+	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
+)
+
+func main() {
+	// Load environment variables
+	err := godotenv.Load(".env")
+	if err != nil {
+		log.Println("Warning: .env file not found or failed to load")
+	}
+
+	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)
+
+	// Neo4j credentials from environment
+	neo4jURI := os.Getenv("NEO4J_URI")
+	neo4jUser := os.Getenv("NEO4J_USER")
+	neo4jPassword := os.Getenv("NEO4J_PASSWORD")
+
+	if neo4jURI == "" || neo4jUser == "" || neo4jPassword == "" {
+		logger.Fatal("Neo4j credentials (NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD) must be set")
+	}
+
+	// Connect to Neo4j
+	driver, err := neo4j.NewDriver(neo4jURI, neo4j.BasicAuth(neo4jUser, neo4jPassword, ""))
+	if err != nil {
+		logger.Fatalf("Failed to connect to Neo4j: %v", err)
+	}
+	defer driver.Close()
+
+	if err := driver.VerifyConnectivity(); err != nil {
+		logger.Fatalf("Failed to verify Neo4j connectivity: %v", err)
+	}
+
+	// Initialize repository, service, and handler
+	workflowRepo := repositories.NewWorkflowRepository(driver)
+	workflowService := services.NewWorkflowService(workflowRepo)
+	workflowHandler := handlers.NewWorkflowHandler(workflowService)
+
+	// Setup router
+	router := mux.NewRouter()
+	router.HandleFunc("/workflow/tasks", workflowHandler.CreateTask).Methods("POST")
+	router.HandleFunc("/workflow/dependencies", workflowHandler.CreateDependency).Methods("POST")
+
+	// HTTPS server configuration
+	httpsPort := os.Getenv("HTTPS_PORT")
+	if httpsPort == "" {
+		httpsPort = "8443"
+	}
+	logger.Printf("HTTPS server is starting on port %s...", httpsPort)
+
+	certFile := "certificates/cert.crt"
+	keyFile := "certificates/cert.key"
+
+	if err := http.ListenAndServeTLS(":"+httpsPort, certFile, keyFile, router); err != nil {
+		logger.Fatalf("HTTPS server failed to start: %v", err)
+	}
+}

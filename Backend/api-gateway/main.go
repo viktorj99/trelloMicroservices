@@ -14,6 +14,8 @@ func main() {
 	projectService := os.Getenv("PROJECT_SERVICE")
 	taskService := os.Getenv("TASK_SERVICE")
 	notificationService := os.Getenv("NOTIFICATION_SERVICE")
+	workflowService := os.Getenv("WORKFLOW_SERVICE")
+
 	port := os.Getenv("PORT")
 
 	if userService == "" || projectService == "" || taskService == "" || notificationService == "" {
@@ -38,6 +40,10 @@ func main() {
 
 	http.Handle("/api/notifications/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyToService(w, r, notificationService)
+	})))
+
+	http.Handle("/api/workflow/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyToService(w, r, workflowService)
 	})))
 
 	log.Printf("API Gateway is running on HTTPS port %s...", port)
