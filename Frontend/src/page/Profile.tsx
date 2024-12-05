@@ -54,7 +54,7 @@ const Profile = () => {
 				forDelete = true;
 			}
 		});
-		if (forDelete) {
+		if (forDelete || projects === null) {
 			mutation.mutate(user.id);
 			removeToken();
 			navigate('/login');

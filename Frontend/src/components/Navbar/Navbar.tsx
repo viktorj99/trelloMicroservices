@@ -99,13 +99,14 @@ const Navbar: React.FC = () => {
 						<Menu.Item key='profile' icon={<SettingOutlined />}>
 							<Link to='/profile'>Profile</Link>
 						</Menu.Item>
-						<Menu.Item key='notifications' icon={<BellOutlined />} onClick={openDrawer}>
+						<Menu.Item  key='notifications' icon={<BellOutlined />} onClick={openDrawer}>
 							<Badge
 								count={
 									notifications.filter((n: { is_read: any }) => !n.is_read).length
 								}
 							>
-								Notifications
+								<span style={{color: "rgba(255, 255, 255, 0.65)"}}>Notifications</span>
+								
 							</Badge>
 						</Menu.Item>
 						<Drawer
