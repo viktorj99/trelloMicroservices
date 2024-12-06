@@ -6,6 +6,7 @@ import (
 	userpb "pb/userpb"
 	"users-service/server"
 
+	"go.opentelemetry.io/contrib/instrumentation/google.golang.org/grpc/otelgrpc"
 	"google.golang.org/grpc"
 )
 
@@ -15,9 +16,13 @@ func StartGRPCServer() {
 		log.Fatalf("failed to listen: %v", err)
 	}
 
-	grpcServer := grpc.NewServer()
-	userServer := server.NewUserServer() 
-	userpb.RegisterUserServiceServer(grpcServer, userServer) 
+	grpcServer := grpc.NewServer(
+		grpc.UnaryInterceptor(otelgrpc.UnaryServerInterceptor()),
+		grpc.StreamInterceptor(otelgrpc.StreamServerInterceptor()),
+	)
+
+	userServer := server.NewUserServer()
+	userpb.RegisterUserServiceServer(grpcServer, userServer)
 
 	log.Println("gRPC server is running on port 50051...")
 	if err := grpcServer.Serve(lis); err != nil {

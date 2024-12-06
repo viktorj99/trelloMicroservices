@@ -15,12 +15,11 @@ func NewUserServer() *UserServer {
 }
 
 func (s *UserServer) GetAllUsers(ctx context.Context, req *userpb.GetAllUsersRequest) (*userpb.GetAllUsersResponse, error) {
-	usersFromDB, err := services.GetAllUsers()
+	usersFromDB, err := services.GetAllUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Mapiranje korisnika iz baze na gRPC strukturu
 	var users []*userpb.User
 	for _, user := range usersFromDB {
 		users = append(users, &userpb.User{

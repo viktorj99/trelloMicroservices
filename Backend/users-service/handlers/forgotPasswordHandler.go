@@ -2,15 +2,20 @@ package handlers
 
 import (
 	"encoding/json"
-	"log"
 	"net/http"
-
 	"users-service/auth"
 	"users-service/services"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func ForgotPassword(w http.ResponseWriter, r *http.Request) {
+	ctx, span := otel.Tracer("users-service").Start(r.Context(), "ForgotPasswordHandler")
+	defer span.End()
+
 	if r.Method != http.MethodPost {
+		span.SetAttributes(attribute.String("error", "Invalid request method"))
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
@@ -19,31 +24,37 @@ func ForgotPassword(w http.ResponseWriter, r *http.Request) {
 		Email string `json:"email"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		span.RecordError(err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	user, err := services.GetUserByEmail(request.Email)
+	span.SetAttributes(attribute.String("user.email", request.Email))
+
+	user, err := services.GetUserByEmail(ctx, request.Email)
 	if err != nil {
+		span.RecordError(err)
 		http.Error(w, "User not found", http.StatusNotFound)
 		return
 	}
 
 	resetCode, err := services.GenerateVerificationCode()
 	if err != nil {
+		span.RecordError(err)
 		http.Error(w, "Failed to generate reset code", http.StatusInternalServerError)
 		return
 	}
 
-	err = services.SaveVerificationCode(resetCode, user.Username)
+	err = services.SaveVerificationCode(ctx, resetCode, user.Username)
 	if err != nil {
+		span.RecordError(err)
 		http.Error(w, "Failed to save reset code", http.StatusInternalServerError)
 		return
 	}
 
 	err = services.SendPasswordResetEmail(user.Email, resetCode)
 	if err != nil {
-		log.Printf("Error while sending reset email: %v", err)
+		span.RecordError(err)
 		http.Error(w, "Failed to send reset email", http.StatusInternalServerError)
 		return
 	}
@@ -53,7 +64,11 @@ func ForgotPassword(w http.ResponseWriter, r *http.Request) {
 }
 
 func ChangeForgotPassword(w http.ResponseWriter, r *http.Request) {
+	ctx, span := otel.Tracer("users-service").Start(r.Context(), "ChangeForgotPasswordHandler")
+	defer span.End()
+
 	if r.Method != http.MethodPost {
+		span.SetAttributes(attribute.String("error", "Invalid request method"))
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
@@ -63,18 +78,23 @@ func ChangeForgotPassword(w http.ResponseWriter, r *http.Request) {
 		NewPassword string `json:"newPassword"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		span.RecordError(err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	username, err := services.GetUserUsernameByVerificationCode(request.Code)
+	span.SetAttributes(attribute.String("verification.code", request.Code))
+
+	username, err := services.GetUserUsernameByVerificationCode(ctx, request.Code)
 	if err != nil {
+		span.RecordError(err)
 		http.Error(w, "Invalid or expired verification code", http.StatusBadRequest)
 		return
 	}
 
-	err = services.ChangeForgotPassword(username, request.NewPassword, request.Code)
+	err = services.ChangeForgotPassword(ctx, username, request.NewPassword, request.Code)
 	if err != nil {
+		span.RecordError(err)
 		if err.Error() == "new password cannot be the same as the old password" {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
@@ -84,40 +104,49 @@ func ChangeForgotPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	services.DeleteVerificationCode(request.Code)
+	services.DeleteVerificationCode(ctx, request.Code)
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(map[string]string{"message": "Password has been successfully changed"})
 }
 
 func ChangePassword(w http.ResponseWriter, r *http.Request) {
+	ctx, span := otel.Tracer("users-service").Start(r.Context(), "ChangePasswordHandler")
+	defer span.End()
+
 	if r.Method != http.MethodPost {
+		span.SetAttributes(attribute.String("error", "Invalid request method"))
 		http.Error(w, "Invalid request method", http.StatusMethodNotAllowed)
 		return
 	}
 
 	claims, err := auth.ParseTokenHeader(r)
 	if err != nil {
+		span.RecordError(err)
 		http.Error(w, "Unauthorized: Invalid or missing token", http.StatusUnauthorized)
 		return
 	}
 
+	span.SetAttributes(attribute.String("user.username", claims.Username))
+
 	var request struct {
 		NewPassword string `json:"newPassword"`
 	}
-
 	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		span.RecordError(err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
 	if request.NewPassword == "" {
+		span.SetAttributes(attribute.String("error", "Missing new password"))
 		http.Error(w, "New password is required", http.StatusBadRequest)
 		return
 	}
 
-	err = services.ChangePassword(claims.Username, request.NewPassword)
+	err = services.ChangePassword(ctx, claims.Username, request.NewPassword)
 	if err != nil {
+		span.RecordError(err)
 		if err.Error() == "New password cannot be the same as the old password." {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return

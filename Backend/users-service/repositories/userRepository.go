@@ -3,14 +3,14 @@ package repositories
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log"
-	"time"
 	"users-service/model"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 var userCollection *mongo.Collection
@@ -19,52 +19,56 @@ func InitRepository(client *mongo.Client) {
 	userCollection = client.Database("usersDB").Collection("users")
 }
 
-func CreateUser(user model.User) (interface{}, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func CreateUser(ctx context.Context, user model.User) (interface{}, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "CreateUser")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.email", user.Email),
+		attribute.String("user.username", user.Username),
+	)
 
 	var existingUser model.User
 	err := userCollection.FindOne(ctx, bson.M{"email": user.Email}).Decode(&existingUser)
 	if err == nil {
+		span.RecordError(errors.New("Email is already in use"))
 		return nil, errors.New("Email is already in use")
 	}
 	if err != mongo.ErrNoDocuments {
+		span.RecordError(err)
 		log.Println("Error checking existing email:", err)
 		return nil, err
 	}
 
 	err = userCollection.FindOne(ctx, bson.M{"username": user.Username}).Decode(&existingUser)
 	if err == nil {
+		span.RecordError(errors.New("Username is already taken"))
 		return nil, errors.New("Username is already taken")
 	}
 	if err != mongo.ErrNoDocuments {
+		span.RecordError(err)
 		log.Println("Error checking existing username:", err)
 		return nil, err
 	}
 
-	var result *mongo.InsertOneResult
-	result, err = userCollection.InsertOne(ctx, user)
+	result, err := userCollection.InsertOne(ctx, user)
 	if err != nil {
-		if writeErr, ok := err.(mongo.WriteException); ok {
-			for _, e := range writeErr.WriteErrors {
-				if e.Code == 11000 {
-					return nil, errors.New("Duplicate key error: " + e.Message)
-				}
-			}
-		}
+		span.RecordError(err)
 		log.Println("Error inserting user:", err)
 		return nil, err
 	}
 
+	span.SetAttributes(attribute.String("user.id", result.InsertedID.(primitive.ObjectID).Hex()))
 	return result.InsertedID, nil
 }
 
-func GetAllUsers() ([]model.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func GetAllUsers(ctx context.Context) ([]model.User, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetAllUsers")
+	defer span.End()
 
 	cursor, err := userCollection.Find(ctx, bson.M{})
 	if err != nil {
+		span.RecordError(err)
 		log.Println("Error finding users:", err)
 		return nil, err
 	}
@@ -74,6 +78,7 @@ func GetAllUsers() ([]model.User, error) {
 	for cursor.Next(ctx) {
 		var user model.User
 		if err := cursor.Decode(&user); err != nil {
+			span.RecordError(err)
 			log.Println("Error decoding user:", err)
 			return nil, err
 		}
@@ -81,24 +86,28 @@ func GetAllUsers() ([]model.User, error) {
 	}
 
 	if err := cursor.Err(); err != nil {
+		span.RecordError(err)
 		log.Println("Cursor error:", err)
 		return nil, err
 	}
 
+	span.SetAttributes(attribute.Int("users.count", len(users)))
 	return users, nil
 }
 
-func GetAllUserMembers() ([]model.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func GetAllUserMembers(ctx context.Context) ([]model.User, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetAllUserMembers")
+	defer span.End()
 
 	filter := bson.M{
 		"role":      model.RoleMember,
 		"is_active": true,
 	}
+	span.SetAttributes(attribute.String("filter.role", model.RoleMember))
 
 	cursor, err := userCollection.Find(ctx, filter)
 	if err != nil {
+		span.RecordError(err)
 		log.Println("Error finding users:", err)
 		return nil, err
 	}
@@ -108,6 +117,7 @@ func GetAllUserMembers() ([]model.User, error) {
 	for cursor.Next(ctx) {
 		var user model.User
 		if err := cursor.Decode(&user); err != nil {
+			span.RecordError(err)
 			log.Println("Error decoding user:", err)
 			return nil, err
 		}
@@ -115,19 +125,24 @@ func GetAllUserMembers() ([]model.User, error) {
 	}
 
 	if err := cursor.Err(); err != nil {
+		span.RecordError(err)
 		log.Println("Cursor error:", err)
 		return nil, err
 	}
 
+	span.SetAttributes(attribute.Int("users.count", len(users)))
 	return users, nil
 }
 
-func GetUserByID(userID string) (model.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func GetUserByID(ctx context.Context, userID string) (model.User, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByID")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.id", userID))
 
 	objID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
+		span.RecordError(err)
 		return model.User{}, errors.New("invalid user ID format")
 	}
 
@@ -135,8 +150,10 @@ func GetUserByID(userID string) (model.User, error) {
 	err = userCollection.FindOne(ctx, bson.M{"_id": objID}).Decode(&user)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
+			span.RecordError(err)
 			return user, errors.New("user not found")
 		}
+		span.RecordError(err)
 		log.Println("Error finding user by ID:", err)
 		return user, err
 	}
@@ -144,15 +161,19 @@ func GetUserByID(userID string) (model.User, error) {
 	return user, nil
 }
 
-func GetUserByUsername(username string) (model.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func GetUserByUsername(ctx context.Context, username string) (model.User, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByUsername")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.username", username))
 
 	var user model.User
 	err := userCollection.FindOne(ctx, bson.M{"username": username}).Decode(&user)
 	if err == mongo.ErrNoDocuments {
+		span.RecordError(err)
 		return user, errors.New("user not found")
 	} else if err != nil {
+		span.RecordError(err)
 		log.Println("Error retrieving user by username:", err)
 		return user, err
 	}
@@ -160,15 +181,19 @@ func GetUserByUsername(username string) (model.User, error) {
 	return user, nil
 }
 
-func GetUserByEmail(email string) (model.User, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func GetUserByEmail(ctx context.Context, email string) (model.User, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByEmail")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.email", email))
 
 	var user model.User
 	err := userCollection.FindOne(ctx, bson.M{"email": email}).Decode(&user)
 	if err == mongo.ErrNoDocuments {
+		span.RecordError(err)
 		return user, errors.New("user not found")
 	} else if err != nil {
+		span.RecordError(err)
 		log.Println("Error retrieving user by email:", err)
 		return user, err
 	}
@@ -176,12 +201,15 @@ func GetUserByEmail(email string) (model.User, error) {
 	return user, nil
 }
 
-func UpdateUser(userID string, updatedUser model.User) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func UpdateUser(ctx context.Context, userID string, updatedUser model.User) error {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "UpdateUser")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.id", userID))
 
 	objID, err := primitive.ObjectIDFromHex(userID)
 	if err != nil {
+		span.RecordError(err)
 		return errors.New("invalid user ID format")
 	}
 
@@ -199,6 +227,7 @@ func UpdateUser(userID string, updatedUser model.User) error {
 
 	_, err = userCollection.UpdateOne(ctx, bson.M{"_id": objID}, update)
 	if err != nil {
+		span.RecordError(err)
 		log.Println("Error updating user:", err)
 		return err
 	}
@@ -206,40 +235,49 @@ func UpdateUser(userID string, updatedUser model.User) error {
 	return nil
 }
 
-func DeleteUserByUsername(username string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+func DeleteUserByUsername(ctx context.Context, username string) error {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "DeleteUserByUsername")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.username", username))
 
 	filter := bson.M{"username": username}
 	_, err := userCollection.DeleteOne(ctx, filter)
 	if err != nil {
+		span.RecordError(err)
 		log.Printf("Error deleting user by username: %v", err)
 		return err
 	}
 
-	log.Printf("User with username %s deleted from MongoDB", username)
 	return nil
 }
 
 func DeleteUserById(ctx context.Context, userId string) (*mongo.DeleteResult, error) {
-	fmt.Println("USERID", userId)
+	ctx, span := otel.Tracer("users-service").Start(ctx, "DeleteUserById")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
 	objID, err := primitive.ObjectIDFromHex(userId)
 	if err != nil {
+		span.RecordError(err)
 		return nil, errors.New("invalid user ID format")
 	}
 
 	filter := bson.M{"_id": objID}
-
 	result, err := userCollection.DeleteOne(ctx, filter)
 	if err != nil {
+		span.RecordError(err)
 		log.Printf("Error deleting user by ID: %v", err)
 		return nil, err
 	}
 
 	if result.DeletedCount == 0 {
-		return nil, errors.New("user not found")
+		err := errors.New("user not found")
+		span.RecordError(err)
+		return nil, err
 	}
 
-	log.Printf("User with ID %s deleted from MongoDB", userId)
+	span.SetAttributes(attribute.Int64("deletedCount", result.DeletedCount))
 	return result, nil
 }

@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/rand"
 	"fmt"
 	"log"
@@ -9,6 +10,8 @@ import (
 	"os"
 
 	"github.com/joho/godotenv"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 func GenerateVerificationCode() (string, error) {
@@ -50,7 +53,15 @@ func sendEmail(to, subject, body string) error {
 	return smtp.SendMail(smtpHost+":"+smtpPort, auth, from, []string{to}, message)
 }
 
-func SendVerificationEmail(email string, code string) error {
+func SendVerificationEmail(ctx context.Context, email string, code string) error {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "SendVerificationEmail")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("email", email),
+		attribute.String("verification.code", code),
+	)
+
 	subject := "Email Verification Code"
 	body := fmt.Sprintf(`
 	<html>
@@ -68,7 +79,13 @@ func SendVerificationEmail(email string, code string) error {
 		</body>
 	</html>`, code)
 
-	return sendEmail(email, subject, body)
+	err := sendEmail(email, subject, body)
+	if err != nil {
+		span.RecordError(err)
+		return fmt.Errorf("failed to send email: %w", err)
+	}
+
+	return nil
 }
 
 func SendPasswordResetEmail(email string, code string) error {
