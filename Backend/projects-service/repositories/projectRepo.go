@@ -11,6 +11,8 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type ProjectRepo struct {
@@ -53,30 +55,52 @@ func (pr *ProjectRepo) collection() *mongo.Collection {
 }
 
 func (pr *ProjectRepo) GetAll(ctx context.Context) ([]model.Project, error) {
+	tracer := otel.Tracer("projects-service/repository")
+	ctx, span := tracer.Start(ctx, "GetAllProjects")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("db.operation", "find"), attribute.String("db.collection", "projects"))
+
 	var projects []model.Project
 	cursor, err := pr.collection().Find(ctx, bson.M{})
 	if err != nil {
 		pr.logger.Println("Error retrieving all projects:", err)
+		span.RecordError(err)
 		return nil, err
 	}
 	defer cursor.Close(ctx)
 
 	if err = cursor.All(ctx, &projects); err != nil {
 		pr.logger.Println("Error decoding all projects:", err)
+		span.RecordError(err)
 		return nil, err
 	}
 
+	span.SetAttributes(attribute.Int("projects.count", len(projects)))
 	return projects, nil
 }
 
 func (pr *ProjectRepo) GetByName(ctx context.Context, name string) (*model.Project, error) {
+	tracer := otel.Tracer("projects-service/repository")
+	ctx, span := tracer.Start(ctx, "GetProjectByName")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.operation", "findOne"),
+		attribute.String("db.collection", "projects"),
+		attribute.String("project.name", name),
+	)
+
 	var project model.Project
 	err := pr.collection().FindOne(ctx, bson.M{"name": name}).Decode(&project)
 	if err != nil {
 		if err == mongo.ErrNoDocuments {
+			pr.logger.Println("No project found with name:", name)
+			span.SetAttributes(attribute.Bool("db.result.empty", true))
 			return nil, nil
 		}
 		pr.logger.Println("Error retrieving project by name:", err)
+		span.RecordError(err)
 		return nil, err
 	}
 
@@ -84,10 +108,24 @@ func (pr *ProjectRepo) GetByName(ctx context.Context, name string) (*model.Proje
 }
 
 func (pr *ProjectRepo) GetById(ctx context.Context, id primitive.ObjectID) (*model.Project, error) {
+	tracer := otel.Tracer("projects-service/repository")
+	ctx, span := tracer.Start(ctx, "GetProjectById")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.operation", "findOne"),
+		attribute.String("db.collection", "projects"),
+		attribute.String("project.id", id.Hex()),
+	)
+
 	var project model.Project
 	err := pr.collection().FindOne(ctx, bson.M{"_id": id}).Decode(&project)
 	if err != nil {
+		span.RecordError(err)
 		pr.logger.Println("Error retrieving project by ID:", err)
+		if err == mongo.ErrNoDocuments {
+			span.SetAttributes(attribute.Bool("db.result.empty", true))
+		}
 		return nil, err
 	}
 
@@ -95,21 +133,43 @@ func (pr *ProjectRepo) GetById(ctx context.Context, id primitive.ObjectID) (*mod
 }
 
 func (pr *ProjectRepo) Insert(ctx context.Context, project *model.Project) (*mongo.InsertOneResult, error) {
+	tracer := otel.Tracer("projects-service/repository")
+	ctx, span := tracer.Start(ctx, "InsertProject")
+	defer span.End()
+
 	project.ID = primitive.NewObjectID()
+	span.SetAttributes(
+		attribute.String("db.operation", "insert"),
+		attribute.String("db.collection", "projects"),
+		attribute.String("project.name", project.Name),
+	)
+
 	result, err := pr.collection().InsertOne(ctx, project)
 	if err != nil {
+		span.RecordError(err)
 		pr.logger.Println("Error inserting project:", err)
 		return nil, err
 	}
 
+	span.SetAttributes(attribute.String("db.inserted_id", result.InsertedID.(primitive.ObjectID).Hex()))
 	return result, nil
 }
 
 func (pr *ProjectRepo) Update(ctx context.Context, id primitive.ObjectID, updateData bson.M) (*mongo.UpdateResult, error) {
-	filter := bson.M{"_id": id}
+	tracer := otel.Tracer("projects-service/repository")
+	ctx, span := tracer.Start(ctx, "UpdateProject")
+	defer span.End()
 
+	span.SetAttributes(
+		attribute.String("db.operation", "update"),
+		attribute.String("db.collection", "projects"),
+		attribute.String("project.id", id.Hex()),
+	)
+
+	filter := bson.M{"_id": id}
 	result, err := pr.collection().UpdateOne(ctx, filter, updateData)
 	if err != nil {
+		span.RecordError(err)
 		pr.logger.Println("Error updating project:", err)
 		return nil, err
 	}
@@ -118,8 +178,19 @@ func (pr *ProjectRepo) Update(ctx context.Context, id primitive.ObjectID, update
 }
 
 func (pr *ProjectRepo) Delete(ctx context.Context, id primitive.ObjectID) (*mongo.DeleteResult, error) {
+	tracer := otel.Tracer("projects-service/repository")
+	ctx, span := tracer.Start(ctx, "DeleteProject")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.operation", "delete"),
+		attribute.String("db.collection", "projects"),
+		attribute.String("project.id", id.Hex()),
+	)
+
 	result, err := pr.collection().DeleteOne(ctx, bson.M{"_id": id})
 	if err != nil {
+		span.RecordError(err)
 		pr.logger.Println("Error deleting project:", err)
 		return nil, err
 	}
@@ -128,57 +199,90 @@ func (pr *ProjectRepo) Delete(ctx context.Context, id primitive.ObjectID) (*mong
 }
 
 func (pr *ProjectRepo) GetProjectsByUserID(ctx context.Context, userID primitive.ObjectID) ([]model.Project, error) {
-    fmt.Println("UserID:", userID)
-    
-    filter := bson.M{"members._id": userID}
+	tracer := otel.Tracer("projects-service/repository")
+	ctx, span := tracer.Start(ctx, "GetProjectsByUserID")
+	defer span.End()
 
-    var projects []model.Project
-    cursor, err := pr.collection().Find(ctx, filter)
-    if err != nil {
-        pr.logger.Println("Error retrieving projects by user ID:", err)
-        return nil, err
-    }
-    defer cursor.Close(ctx)
+	span.SetAttributes(
+		attribute.String("db.operation", "find"),
+		attribute.String("db.collection", "projects"),
+		attribute.String("user.id", userID.Hex()),
+	)
 
-    if err := cursor.All(ctx, &projects); err != nil {
-        pr.logger.Println("Error decoding projects by user ID:", err)
-        return nil, err
-    }
+	filter := bson.M{"members._id": userID}
+	var projects []model.Project
+	cursor, err := pr.collection().Find(ctx, filter)
+	if err != nil {
+		span.RecordError(err)
+		pr.logger.Println("Error retrieving projects by user ID:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
 
-    return projects, nil
+	if err := cursor.All(ctx, &projects); err != nil {
+		span.RecordError(err)
+		pr.logger.Println("Error decoding projects by user ID:", err)
+		return nil, err
+	}
+
+	span.SetAttributes(attribute.Int("projects.count", len(projects)))
+	return projects, nil
 }
 
 func (pr *ProjectRepo) GetProjectsByManagerID(ctx context.Context, userID primitive.ObjectID) ([]model.Project, error) {
-    fmt.Println("UserID:", userID)
-    
-    filter := bson.M{"manager._id": userID}
+	tracer := otel.Tracer("projects-service/repository")
+	ctx, span := tracer.Start(ctx, "GetProjectsByManagerID")
+	defer span.End()
 
-    var projects []model.Project
-    cursor, err := pr.collection().Find(ctx, filter)
-    if err != nil {
-        pr.logger.Println("Error retrieving projects by user ID:", err)
-        return nil, err
-    }
-    defer cursor.Close(ctx)
+	span.SetAttributes(
+		attribute.String("db.operation", "find"),
+		attribute.String("db.collection", "projects"),
+		attribute.String("manager.id", userID.Hex()),
+	)
 
-    if err := cursor.All(ctx, &projects); err != nil {
-        pr.logger.Println("Error decoding projects by user ID:", err)
-        return nil, err
-    }
+	filter := bson.M{"manager._id": userID}
+	var projects []model.Project
+	cursor, err := pr.collection().Find(ctx, filter)
+	if err != nil {
+		span.RecordError(err)
+		pr.logger.Println("Error retrieving projects by manager ID:", err)
+		return nil, err
+	}
+	defer cursor.Close(ctx)
 
-    return projects, nil
+	if err := cursor.All(ctx, &projects); err != nil {
+		span.RecordError(err)
+		pr.logger.Println("Error decoding projects by manager ID:", err)
+		return nil, err
+	}
+
+	span.SetAttributes(attribute.Int("projects.count", len(projects)))
+	return projects, nil
 }
 
 func (pr *ProjectRepo) IsMemberInProject(ctx context.Context, projectId primitive.ObjectID, memberId primitive.ObjectID) (bool, error) {
-	var project model.Project
+	tracer := otel.Tracer("projects-service/repository")
+	ctx, span := tracer.Start(ctx, "IsMemberInProject")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("db.operation", "findOne"),
+		attribute.String("db.collection", "projects"),
+		attribute.String("project.id", projectId.Hex()),
+		attribute.String("member.id", memberId.Hex()),
+	)
+
 	filter := bson.M{
 		"_id":     projectId,
 		"members": bson.M{"$elemMatch": bson.M{"_id": memberId}},
 	}
 
+	var project model.Project
 	err := pr.collection().FindOne(ctx, filter).Decode(&project)
 	if err != nil {
+		span.RecordError(err)
 		if err == mongo.ErrNoDocuments {
+			span.SetAttributes(attribute.Bool("db.result.empty", true))
 			return false, nil
 		}
 		pr.logger.Println("Error checking if member is in project:", err)

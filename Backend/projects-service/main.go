@@ -5,14 +5,14 @@ import (
 	"log"
 	"os"
 	"projects-service/client"
-
 	"projects-service/handlers"
 	"projects-service/helpers"
 )
 
 func main() {
-	// Loading environment variables (if needed)
-	// helpers.LoadingEnv()
+	// Initialize OpenTelemetry tracing
+	shutdown := helpers.InitTracer()
+	defer shutdown()
 
 	ctx := context.Background()
 	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)
@@ -52,5 +52,4 @@ func main() {
 	// Setup routes for Project REST API and gRPC
 	router := helpers.SetupRoutes(handler, userClient.Client, taskServiceClient)
 	helpers.RunServer(router, logger)
-
 }

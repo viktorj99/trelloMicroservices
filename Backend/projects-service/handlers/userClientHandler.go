@@ -3,26 +3,43 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
-	userpb "pb/userpb"
 	"time"
+
+	userpb "pb/userpb"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	"go.opentelemetry.io/otel/codes"
 )
 
 func GetUsersHandler(w http.ResponseWriter, r *http.Request, userClient userpb.UserServiceClient) {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "GetUsersHandler")
+	defer span.End()
+
+	ctx, cancel := context.WithTimeout(ctx, time.Second)
 	defer cancel()
 
-	// Poziv GetAllUsers RPC metode
 	response, err := userClient.GetAllUsers(ctx, &userpb.GetAllUsersRequest{})
 	if err != nil {
-		http.Error(w, "Greška pri dobijanju korisnika: "+err.Error(), http.StatusInternalServerError)
+		span.RecordError(err)
+		span.SetAttributes(attribute.String("error.message", err.Error()))
+		span.SetStatus(codes.Error, "Failed to fetch users")
+
+		http.Error(w, fmt.Sprintf("Failed to fetch users: %v", err), http.StatusInternalServerError)
 		return
 	}
 
-	// Vraća odgovor kao JSON
+	span.SetAttributes(attribute.Int("users.count", len(response.Users)))
+
 	w.Header().Set("Content-Type", "application/json")
 	if err := json.NewEncoder(w).Encode(response.Users); err != nil {
-		http.Error(w, "Greška pri enkodiranju odgovora: "+err.Error(), http.StatusInternalServerError)
+		span.RecordError(err)
+		span.SetStatus(codes.Error, "Failed to encode response")
+		http.Error(w, fmt.Sprintf("Failed to encode response: %v", err), http.StatusInternalServerError)
 		return
 	}
+
+	span.SetStatus(codes.Ok, "Success")
 }
