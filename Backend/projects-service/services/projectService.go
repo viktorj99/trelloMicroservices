@@ -33,7 +33,7 @@ func NewProjectService(repo *repositories.ProjectRepo, nc *nats.Conn) *ProjectSe
 
 func (ps *ProjectService) GetAllProjects(ctx context.Context) ([]model.Project, error) {
 	tracer := otel.Tracer("projects-service")
-	ctx, span := tracer.Start(ctx, "GetAllProjects")
+	ctx, span := tracer.Start(ctx, "GetAllProjectsService")
 	defer span.End()
 
 	projects, err := ps.repo.GetAll(ctx)
@@ -48,7 +48,7 @@ func (ps *ProjectService) GetAllProjects(ctx context.Context) ([]model.Project, 
 
 func (ps *ProjectService) GetProjectByName(ctx context.Context, name string) (*model.Project, error) {
 	tracer := otel.Tracer("projects-service")
-	ctx, span := tracer.Start(ctx, "GetProjectByName")
+	ctx, span := tracer.Start(ctx, "GetProjectByNameService")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("project.name", name))
@@ -64,7 +64,7 @@ func (ps *ProjectService) GetProjectByName(ctx context.Context, name string) (*m
 
 func (ps *ProjectService) GetProjectById(ctx context.Context, id primitive.ObjectID) (*model.Project, error) {
 	tracer := otel.Tracer("projects-service")
-	ctx, span := tracer.Start(ctx, "GetProjectById")
+	ctx, span := tracer.Start(ctx, "GetProjectByIdService")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("project.id", id.Hex()))
@@ -90,7 +90,7 @@ func (ps *ProjectService) GetProjectById(ctx context.Context, id primitive.Objec
 
 func (ps *ProjectService) CreateProject(ctx context.Context, project *model.Project) (*mongo.InsertOneResult, error) {
 	tracer := otel.Tracer("projects-service")
-	ctx, span := tracer.Start(ctx, "CreateProject")
+	ctx, span := tracer.Start(ctx, "CreateProjectService")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("project.name", project.Name))
@@ -133,7 +133,7 @@ func (ps *ProjectService) CreateProject(ctx context.Context, project *model.Proj
 
 func (ps *ProjectService) UpdateProject(ctx context.Context, id primitive.ObjectID, updateData bson.M) (*mongo.UpdateResult, error) {
 	tracer := otel.Tracer("projects-service")
-	ctx, span := tracer.Start(ctx, "UpdateProject")
+	ctx, span := tracer.Start(ctx, "UpdateProjectService")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("project.id", id.Hex()))
@@ -160,7 +160,7 @@ func (ps *ProjectService) UpdateProject(ctx context.Context, id primitive.Object
 
 func (ps *ProjectService) DeleteProjectWithTasks(ctx context.Context, projectID primitive.ObjectID) error {
 	tracer := otel.Tracer("projects-service")
-	ctx, span := tracer.Start(ctx, "DeleteProjectWithTasks")
+	ctx, span := tracer.Start(ctx, "DeleteProjectWithTasksService")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("project.id", projectID.Hex()))
@@ -237,7 +237,7 @@ func (ps *ProjectService) DeleteProjectWithTasks(ctx context.Context, projectID 
 
 func (ps *ProjectService) GetProjectsByUserID(ctx context.Context, userID primitive.ObjectID) ([]model.Project, error) {
 	tracer := otel.Tracer("projects-service")
-	ctx, span := tracer.Start(ctx, "GetProjectsByUserID")
+	ctx, span := tracer.Start(ctx, "GetProjectsByUserIDService")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("user.id", userID.Hex()))
@@ -254,7 +254,7 @@ func (ps *ProjectService) GetProjectsByUserID(ctx context.Context, userID primit
 
 func (ps *ProjectService) GetProjectsByManagerID(ctx context.Context, userID primitive.ObjectID) ([]model.Project, error) {
 	tracer := otel.Tracer("projects-service")
-	ctx, span := tracer.Start(ctx, "GetProjectsByManagerID")
+	ctx, span := tracer.Start(ctx, "GetProjectsByManagerIDService")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("manager.id", userID.Hex()))

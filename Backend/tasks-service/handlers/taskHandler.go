@@ -12,6 +12,9 @@ import (
 	"github.com/microcosm-cc/bluemonday"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type TaskHandler struct {
@@ -29,25 +32,36 @@ func NewTaskHandler(service *services.TaskService, logger *log.Logger, projectCl
 }
 
 func (h *TaskHandler) GetAllTasks(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
+	tracer := otel.Tracer("tasks-service/handler")
+	ctx, span := tracer.Start(r.Context(), "GetAllTasksHandler")
+	defer span.End()
+
 	tasks, err := h.service.GetAllTasks(ctx)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error fetching tasks:", err)
 		http.Error(w, "Failed to retrieve tasks", http.StatusInternalServerError)
 		return
 	}
+
+	span.SetAttributes(attribute.Int("tasks.count", len(tasks)))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tasks)
 }
 
 func (h *TaskHandler) GetTaskById(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("tasks-service/handler")
+	ctx, span := tracer.Start(r.Context(), "GetTaskByIdHandler")
+	defer span.End()
+
 	vars := mux.Vars(r)
 	id := vars["id"]
+	span.SetAttributes(attribute.String("task.id", id))
 
-	ctx := r.Context()
 	task, err := h.service.GetTaskById(ctx, id)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error fetching task by ID:", err)
 		http.Error(w, "Task not found", http.StatusNotFound)
 		return
@@ -58,8 +72,13 @@ func (h *TaskHandler) GetTaskById(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("tasks-service/handler")
+	ctx, span := tracer.Start(r.Context(), "CreateTaskHandler")
+	defer span.End()
+
 	var task model.Task
 	if err := json.NewDecoder(r.Body).Decode(&task); err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error decoding task:", err)
 		http.Error(w, "Invalid input", http.StatusBadRequest)
 		return
@@ -68,15 +87,16 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	sanitizer := bluemonday.StrictPolicy()
 	task.Title = sanitizer.Sanitize(task.Title)
 	task.Description = sanitizer.Sanitize(task.Description)
+	span.SetAttributes(attribute.String("task.title", task.Title))
 
 	if len(task.Title) < 5 || len(task.Title) > 100 {
 		http.Error(w, "Title must be between 5 and 100 characters", http.StatusBadRequest)
 		return
 	}
 
-	ctx := r.Context()
 	createdTask, err := h.service.CreateTask(ctx, &task)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error creating task:", err)
 		http.Error(w, "Failed to create task", http.StatusInternalServerError)
 		return
@@ -88,15 +108,22 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) AssignMemberToTask(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("tasks-service/handler")
+	ctx, span := tracer.Start(r.Context(), "AssignMemberToTaskHandler")
+	defer span.End()
+
 	vars := mux.Vars(r)
 	taskID := vars["taskID"]
 	memberID := vars["memberID"]
 
-	ctx := r.Context()
+	span.SetAttributes(
+		attribute.String("task.id", taskID),
+		attribute.String("member.id", memberID),
+	)
 
-	// Convert taskID and memberID to ObjectID
 	taskObjectID, err := primitive.ObjectIDFromHex(taskID)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Invalid task ID format:", err)
 		http.Error(w, "Invalid task ID format", http.StatusBadRequest)
 		return
@@ -104,39 +131,35 @@ func (h *TaskHandler) AssignMemberToTask(w http.ResponseWriter, r *http.Request)
 
 	memberObjectID, err := primitive.ObjectIDFromHex(memberID)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Invalid member ID format:", err)
 		http.Error(w, "Invalid member ID format", http.StatusBadRequest)
 		return
 	}
 
-	// Convert taskObjectID to string for GetTaskById call
-	taskIDStr := taskObjectID.Hex()
-	task, err := h.service.GetTaskById(ctx, taskIDStr)
+	task, err := h.service.GetTaskById(ctx, taskObjectID.Hex())
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error fetching task:", err)
 		http.Error(w, "Failed to fetch task", http.StatusInternalServerError)
 		return
 	}
 
-	// Get projectID from task
 	projectID := task.Project.Hex()
-
-	// Check if the member is part of the project
 	resp, err := h.projectClient.CheckMemberInProject(ctx, projectID, memberID)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error checking if member is part of project:", err)
 		http.Error(w, "Failed to check member's project status", http.StatusInternalServerError)
 		return
 	}
 
-	// If the member is not part of the project, return an error
 	if !resp.GetValue() {
 		h.logger.Println("Member is not part of the project")
 		http.Error(w, "Member is not part of the project", http.StatusBadRequest)
 		return
 	}
 
-	// Proceed with assigning the member to the task
 	updateData := bson.M{
 		"$set": bson.M{
 			"member": memberObjectID,
@@ -145,6 +168,7 @@ func (h *TaskHandler) AssignMemberToTask(w http.ResponseWriter, r *http.Request)
 
 	err = h.service.UpdateTask(ctx, taskObjectID, updateData)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error assigning member to task:", err)
 		http.Error(w, "Failed to assign member to task", http.StatusInternalServerError)
 		return
@@ -155,28 +179,44 @@ func (h *TaskHandler) AssignMemberToTask(w http.ResponseWriter, r *http.Request)
 }
 
 func (h *TaskHandler) GetTasksByProjectId(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("tasks-service/handler")
+	ctx, span := tracer.Start(r.Context(), "GetTasksByProjectIdHandler")
+	defer span.End()
+
 	vars := mux.Vars(r)
 	projectId := vars["projectId"]
+	span.SetAttributes(attribute.String("project.id", projectId))
 
-	ctx := r.Context()
 	tasks, err := h.service.GetTasksByProjectId(ctx, projectId)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error fetching tasks by project ID:", err)
 		http.Error(w, "Failed to retrieve tasks by project ID", http.StatusInternalServerError)
 		return
 	}
+
+	span.SetAttributes(attribute.Int("tasks.count", len(tasks)))
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tasks)
 }
 
 func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("tasks-service/handler")
+	ctx, span := tracer.Start(r.Context(), "ToggleTaskStatusHandler")
+	defer span.End()
+
 	vars := mux.Vars(r)
 	taskID := vars["taskID"]
 	memberID := vars["memberID"]
+	span.SetAttributes(
+		attribute.String("task.id", taskID),
+		attribute.String("member.id", memberID),
+	)
 
 	taskObjectID, err := primitive.ObjectIDFromHex(taskID)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Invalid task ID format:", err)
 		http.Error(w, "Invalid task ID format", http.StatusBadRequest)
 		return
@@ -184,14 +224,15 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 
 	memberObjectID, err := primitive.ObjectIDFromHex(memberID)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Invalid member ID format:", err)
 		http.Error(w, "Invalid member ID format", http.StatusBadRequest)
 		return
 	}
 
-	ctx := r.Context()
 	task, err := h.service.GetTaskById(ctx, taskID)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error fetching task:", err)
 		http.Error(w, "Task not found", http.StatusNotFound)
 		return
@@ -219,6 +260,7 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 
 	err = h.service.UpdateTask(ctx, taskObjectID, updateData)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error updating task status:", err)
 		http.Error(w, "Failed to update task status", http.StatusInternalServerError)
 		return
@@ -229,12 +271,17 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *TaskHandler) RemoveMemberFromTask(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("tasks-service/handler")
+	ctx, span := tracer.Start(r.Context(), "RemoveMemberFromTaskHandler")
+	defer span.End()
+
 	vars := mux.Vars(r)
 	taskID := vars["taskID"]
+	span.SetAttributes(attribute.String("task.id", taskID))
 
-	ctx := r.Context()
 	taskObjectID, err := primitive.ObjectIDFromHex(taskID)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Invalid task ID format:", err)
 		http.Error(w, "Invalid task ID format", http.StatusBadRequest)
 		return
@@ -242,6 +289,7 @@ func (h *TaskHandler) RemoveMemberFromTask(w http.ResponseWriter, r *http.Reques
 
 	task, err := h.service.GetTaskById(ctx, taskID)
 	if err != nil {
+		span.RecordError(err)
 		h.logger.Println("Error fetching task:", err)
 		http.Error(w, "Task not found", http.StatusNotFound)
 		return
@@ -252,27 +300,24 @@ func (h *TaskHandler) RemoveMemberFromTask(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	updateData := bson.M{}
 	if task.Status == model.InProgress {
-		updateData := bson.M{
+		updateData = bson.M{
 			"$set":   bson.M{"status": model.Pending},
 			"$unset": bson.M{"member": ""},
 		}
-		err = h.service.UpdateTask(ctx, taskObjectID, updateData)
-		if err != nil {
-			h.logger.Println("Error removing member and updating task status:", err)
-			http.Error(w, "Failed to remove member and update task status", http.StatusInternalServerError)
-			return
-		}
 	} else {
-		updateData := bson.M{
+		updateData = bson.M{
 			"$unset": bson.M{"member": ""},
 		}
-		err = h.service.UpdateTask(ctx, taskObjectID, updateData)
-		if err != nil {
-			h.logger.Println("Error removing member from task:", err)
-			http.Error(w, "Failed to remove member from task", http.StatusInternalServerError)
-			return
-		}
+	}
+
+	err = h.service.UpdateTask(ctx, taskObjectID, updateData)
+	if err != nil {
+		span.RecordError(err)
+		h.logger.Println("Error removing member from task:", err)
+		http.Error(w, "Failed to remove member from task", http.StatusInternalServerError)
+		return
 	}
 
 	w.WriteHeader(http.StatusOK)

@@ -20,7 +20,7 @@ func InitRepository(client *mongo.Client) {
 }
 
 func CreateUser(ctx context.Context, user model.User) (interface{}, error) {
-	ctx, span := otel.Tracer("users-service").Start(ctx, "CreateUser")
+	ctx, span := otel.Tracer("users-service").Start(ctx, "CreateUserRepo")
 	defer span.End()
 
 	span.SetAttributes(
@@ -63,7 +63,7 @@ func CreateUser(ctx context.Context, user model.User) (interface{}, error) {
 }
 
 func GetAllUsers(ctx context.Context) ([]model.User, error) {
-	ctx, span := otel.Tracer("users-service").Start(ctx, "GetAllUsers")
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetAllUsersRepo")
 	defer span.End()
 
 	cursor, err := userCollection.Find(ctx, bson.M{})
@@ -96,7 +96,7 @@ func GetAllUsers(ctx context.Context) ([]model.User, error) {
 }
 
 func GetAllUserMembers(ctx context.Context) ([]model.User, error) {
-	ctx, span := otel.Tracer("users-service").Start(ctx, "GetAllUserMembers")
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetAllUserMembersRepo")
 	defer span.End()
 
 	filter := bson.M{
@@ -135,7 +135,7 @@ func GetAllUserMembers(ctx context.Context) ([]model.User, error) {
 }
 
 func GetUserByID(ctx context.Context, userID string) (model.User, error) {
-	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByID")
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByIDRepo")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("user.id", userID))
@@ -162,7 +162,7 @@ func GetUserByID(ctx context.Context, userID string) (model.User, error) {
 }
 
 func GetUserByUsername(ctx context.Context, username string) (model.User, error) {
-	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByUsername")
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByUsernameRepo")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("user.username", username))
@@ -182,7 +182,7 @@ func GetUserByUsername(ctx context.Context, username string) (model.User, error)
 }
 
 func GetUserByEmail(ctx context.Context, email string) (model.User, error) {
-	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByEmail")
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByEmailRepo")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("user.email", email))
@@ -202,7 +202,7 @@ func GetUserByEmail(ctx context.Context, email string) (model.User, error) {
 }
 
 func UpdateUser(ctx context.Context, userID string, updatedUser model.User) error {
-	ctx, span := otel.Tracer("users-service").Start(ctx, "UpdateUser")
+	ctx, span := otel.Tracer("users-service").Start(ctx, "UpdateUserRepo")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("user.id", userID))
@@ -236,7 +236,7 @@ func UpdateUser(ctx context.Context, userID string, updatedUser model.User) erro
 }
 
 func DeleteUserByUsername(ctx context.Context, username string) error {
-	ctx, span := otel.Tracer("users-service").Start(ctx, "DeleteUserByUsername")
+	ctx, span := otel.Tracer("users-service").Start(ctx, "DeleteUserByUsernameRepo")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("user.username", username))
@@ -253,7 +253,7 @@ func DeleteUserByUsername(ctx context.Context, username string) error {
 }
 
 func DeleteUserById(ctx context.Context, userId string) (*mongo.DeleteResult, error) {
-	ctx, span := otel.Tracer("users-service").Start(ctx, "DeleteUserById")
+	ctx, span := otel.Tracer("users-service").Start(ctx, "DeleteUserByIdRepo")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("user.id", userId))

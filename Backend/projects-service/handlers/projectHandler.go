@@ -32,7 +32,7 @@ func NewProjectHandler(service *services.ProjectService, taskClient *client.Task
 }
 
 func (ph *ProjectHandler) GetAllProjects(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "GetAllProjects")
+	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "GetAllProjectsHandler")
 	defer span.End()
 
 	projects, err := ph.service.GetAllProjects(ctx)
@@ -49,7 +49,7 @@ func (ph *ProjectHandler) GetAllProjects(w http.ResponseWriter, r *http.Request)
 }
 
 func (ph *ProjectHandler) GetProjectById(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "GetProjectById")
+	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "GetProjectByIdHandler")
 	defer span.End()
 
 	vars := mux.Vars(r)
@@ -75,7 +75,7 @@ func (ph *ProjectHandler) GetProjectById(w http.ResponseWriter, r *http.Request)
 }
 
 func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "CreateProject")
+	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "CreateProjectHandler")
 	defer span.End()
 
 	var project model.Project
@@ -128,7 +128,7 @@ func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 }
 
 func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "AddMemberToProject")
+	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "AddMemberToProjectHandler")
 	defer span.End()
 
 	vars := mux.Vars(r)
@@ -198,7 +198,7 @@ func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Requ
 }
 
 func (ph *ProjectHandler) RemoveMemberFromProject(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "RemoveMemberFromProject")
+	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "RemoveMemberFromProjectHandler")
 	defer span.End()
 
 	vars := mux.Vars(r)
@@ -286,33 +286,48 @@ func (ph *ProjectHandler) RemoveMemberFromProject(w http.ResponseWriter, r *http
 }
 
 func (handler *ProjectHandler) FindProjectsByUserID(w http.ResponseWriter, r *http.Request) {
+	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "FindProjectsByUserIDHandler")
+	defer span.End()
+
 	vars := mux.Vars(r)
 	userIDStr := vars["id"]
 	if userIDStr == "" {
+		span.AddEvent("Missing userID in request")
 		http.Error(w, "userID is required", http.StatusBadRequest)
 		return
 	}
 
+	span.SetAttributes(attribute.String("userID", userIDStr))
+
 	userID, err := primitive.ObjectIDFromHex(userIDStr)
 	if err != nil {
+		span.RecordError(err)
+		span.AddEvent("Invalid userID format")
 		http.Error(w, "Invalid userID format", http.StatusBadRequest)
 		return
 	}
-	projects, err := handler.service.GetProjectsByUserID(r.Context(), userID)
+
+	projects, err := handler.service.GetProjectsByUserID(ctx, userID)
 	if err != nil {
+		span.RecordError(err)
+		span.AddEvent("Error fetching projects for user ID")
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	span.SetAttributes(attribute.Int("projects.count", len(projects)))
+
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusOK)
 	if err := json.NewEncoder(w).Encode(projects); err != nil {
+		span.RecordError(err)
+		span.AddEvent("Failed to encode response")
 		http.Error(w, "Failed to encode response", http.StatusInternalServerError)
 	}
 }
 
 func (handler *ProjectHandler) FindProjectsByManagerID(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "FindProjectsByManagerID")
+	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "FindProjectsByManagerIDHandler")
 	defer span.End()
 	vars := mux.Vars(r)
 	userIDStr := vars["id"]
@@ -353,7 +368,7 @@ func (handler *ProjectHandler) FindProjectsByManagerID(w http.ResponseWriter, r 
 }
 
 func (ph *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "DeleteProject")
+	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "DeleteProjectHandler")
 	defer span.End()
 
 	vars := mux.Vars(r)

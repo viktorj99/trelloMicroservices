@@ -10,7 +10,7 @@ import (
 )
 
 func GetAllUserMembers(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("users-service").Start(r.Context(), "GetAllUserMembers")
+	ctx, span := otel.Tracer("users-service").Start(r.Context(), "GetAllUserMembersHandler")
 	defer span.End()
 
 	if r.Method != http.MethodGet {

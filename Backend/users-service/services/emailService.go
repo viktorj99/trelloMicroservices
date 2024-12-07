@@ -54,7 +54,7 @@ func sendEmail(to, subject, body string) error {
 }
 
 func SendVerificationEmail(ctx context.Context, email string, code string) error {
-	ctx, span := otel.Tracer("users-service").Start(ctx, "SendVerificationEmail")
+	ctx, span := otel.Tracer("users-service").Start(ctx, "SendVerificationEmailService")
 	defer span.End()
 
 	span.SetAttributes(
@@ -89,6 +89,14 @@ func SendVerificationEmail(ctx context.Context, email string, code string) error
 }
 
 func SendPasswordResetEmail(email string, code string) error {
+	_, span := otel.Tracer("email-service").Start(context.Background(), "SendPasswordResetEmailService")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("email", email),
+		attribute.String("code_prefix", code[:3]+"***"), // Mask the code for security
+	)
+
 	subject := "Password Reset Verification Code"
 	body := fmt.Sprintf(`
 	<html>
@@ -106,10 +114,28 @@ func SendPasswordResetEmail(email string, code string) error {
 		</body>
 	</html>`, code)
 
-	return sendEmail(email, subject, body)
+	span.SetAttributes(attribute.Int("email_body_length", len(body)))
+
+	err := sendEmail(email, subject, body)
+	if err != nil {
+		span.RecordError(err)
+		span.AddEvent("Failed to send email")
+		return err
+	}
+
+	span.AddEvent("Email sent successfully")
+	return nil
 }
 
 func SendMagicLinkEmail(email, token string) error {
+	_, span := otel.Tracer("email-service").Start(context.Background(), "SendMagicLinkEmailService")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("email", email),
+		attribute.String("token_prefix", token[:4]+"***"), // Mask the token for security
+	)
+
 	link := fmt.Sprintf("https://localhost:5173/magic-login?token=%s", token)
 	subject := "Magic Link Login"
 	body := fmt.Sprintf(`
@@ -125,5 +151,15 @@ func SendMagicLinkEmail(email, token string) error {
             </div>
         </body>
     </html>`, link)
-	return sendEmail(email, subject, body)
+	span.SetAttributes(attribute.Int("email_body_length", len(body)))
+
+	err := sendEmail(email, subject, body)
+	if err != nil {
+		span.RecordError(err)
+		span.AddEvent("Failed to send magic link email")
+		return err
+	}
+
+	span.AddEvent("Magic link email sent successfully")
+	return nil
 }

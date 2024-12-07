@@ -6,6 +6,8 @@ import (
 
 	projectpb "pb/projectpb"
 
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/grpc"
 )
 
@@ -35,9 +37,24 @@ func (c *ProjectClient) Close() {
 }
 
 func (c *ProjectClient) CheckMemberInProject(ctx context.Context, projectID, memberID string, opts ...grpc.CallOption) (*projectpb.BoolResponse, error) {
+	tracer := otel.Tracer("tasks-service/client")
+	ctx, span := tracer.Start(ctx, "CheckMemberInProject")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("project.id", projectID),
+		attribute.String("member.id", memberID),
+	)
+
 	req := &projectpb.MemberRequest{
 		ProjectId: projectID,
 		MemberId:  memberID,
 	}
-	return c.client.CheckMemberInProject(ctx, req, opts...)
+	resp, err := c.client.CheckMemberInProject(ctx, req, opts...)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+
+	return resp, nil
 }

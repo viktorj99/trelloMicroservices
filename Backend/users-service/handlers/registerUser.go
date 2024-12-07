@@ -34,7 +34,7 @@ type LoginResponse struct {
 }
 
 func RegisterUser(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("users-service").Start(r.Context(), "RegisterUser")
+	ctx, span := otel.Tracer("users-service").Start(r.Context(), "RegisterUserHandler")
 	defer span.End()
 
 	if r.Method != http.MethodPost {
@@ -95,7 +95,7 @@ func RegisterUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func LoginUser(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("users-service").Start(r.Context(), "LoginUser")
+	ctx, span := otel.Tracer("users-service").Start(r.Context(), "LoginUserHandler")
 	defer span.End()
 
 	log.Printf("HTTP Method: %s, Path: %s", r.Method, r.URL.Path)
@@ -134,7 +134,7 @@ func LoginUser(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetAllUsers(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("users-service").Start(r.Context(), "GetAllUsers")
+	ctx, span := otel.Tracer("users-service").Start(r.Context(), "GetAllUsersHandler")
 	defer span.End()
 
 	if r.Method != http.MethodGet {
@@ -156,7 +156,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetUserByID(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("users-service").Start(r.Context(), "GetUserByID")
+	ctx, span := otel.Tracer("users-service").Start(r.Context(), "GetUserByIDHandler")
 	defer span.End()
 
 	if r.Method != http.MethodGet {

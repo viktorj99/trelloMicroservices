@@ -24,6 +24,7 @@ services:
         depends_on:
             - mongo
             - consul
+            - jaeger
 
     projects-service:
         build:
@@ -37,12 +38,15 @@ services:
             - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
             - NATS_URL=nats://nats:4222
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
         networks:
             - app-network
         volumes:
             - ./certificates:/app/certificates
         depends_on:
             - mongo
+            - jaeger
 
     tasks-service:
         build:
@@ -56,6 +60,8 @@ services:
             - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
             - NATS_URL=nats://nats:4222
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
         networks:
             - app-network
         volumes:
@@ -63,6 +69,7 @@ services:
             - ./Backend/tasks-service/.env:/app/.env
         depends_on:
             - mongo
+            - jaeger
 
     notifications-service:
         build:
@@ -85,10 +92,13 @@ services:
             - CASS_DB=cassandra:9042
             # NoSQL: Extremely important! Cassandra takes a lot of time to start!
             # If we don't wait for it to fully initialize we will get exceptions and will not be able to connect!
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
 
         depends_on:
             cassandra:
                 condition: service_healthy
+            
 
     cassandra:
         image: cassandra
@@ -130,6 +140,7 @@ services:
             - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
             - NOTIFICATION_SERVICE=https://notifications-service:8443
             - PORT=8443
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
 
         networks:
             - app-network

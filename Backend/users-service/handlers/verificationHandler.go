@@ -14,7 +14,7 @@ type VerificationRequest struct {
 }
 
 func VerifyCode(w http.ResponseWriter, r *http.Request) {
-	ctx, span := otel.Tracer("users-service").Start(r.Context(), "VerifyCode")
+	ctx, span := otel.Tracer("users-service").Start(r.Context(), "VerifyCodeHandler")
 	defer span.End()
 
 	if r.Method != http.MethodPost {
