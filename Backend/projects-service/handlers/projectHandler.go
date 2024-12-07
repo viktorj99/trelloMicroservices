@@ -19,13 +19,15 @@ import (
 type ProjectHandler struct {
 	service    *services.ProjectService
 	taskClient *client.TaskClient
+	userClient *client.UserClient
 }
 
 // NewProjectHandler creates a new ProjectHandler instance
-func NewProjectHandler(service *services.ProjectService, taskClient *client.TaskClient) *ProjectHandler {
+func NewProjectHandler(service *services.ProjectService, taskClient *client.TaskClient, userClient *client.UserClient) *ProjectHandler {
 	return &ProjectHandler{
 		service:    service,
 		taskClient: taskClient,
+		userClient: userClient,
 	}
 }
 
@@ -69,6 +71,28 @@ func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 	if err := json.NewDecoder(r.Body).Decode(&project); err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
+	}
+
+	exists, err := ph.userClient.CheckIfUserExists(ctx, project.Manager.ID.Hex())
+	if err != nil {
+		http.Error(w, "Error checking manager existence", http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.Error(w, "Manager does not exist", http.StatusBadRequest)
+		return
+	}
+
+	for _, member := range project.Members {
+		memberExists, err := ph.userClient.CheckIfUserExists(ctx, member.ID.Hex())
+		if err != nil {
+			http.Error(w, "Error checking member existence", http.StatusInternalServerError)
+			return
+		}
+		if !memberExists {
+			http.Error(w, "One or more members do not exist", http.StatusBadRequest)
+			return
+		}
 	}
 
 	sanitizer := bluemonday.StrictPolicy()
@@ -127,6 +151,16 @@ func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Requ
 	var member model.User
 	if err := json.NewDecoder(r.Body).Decode(&member); err != nil {
 		http.Error(w, "Invalid member data", http.StatusBadRequest)
+		return
+	}
+
+	exists, err := ph.userClient.CheckIfUserExists(ctx, member.ID.Hex())
+	if err != nil {
+		http.Error(w, "Error checking user existence", http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.Error(w, "User does not exist", http.StatusBadRequest)
 		return
 	}
 
@@ -297,22 +331,22 @@ func (handler *ProjectHandler) FindProjectsByManagerID(w http.ResponseWriter, r 
 }
 
 func (ph ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) {
-    ctx := r.Context()
-    vars := mux.Vars(r)
-    idParam := vars["id"]
+	ctx := r.Context()
+	vars := mux.Vars(r)
+	idParam := vars["id"]
 
-    projectID, err := primitive.ObjectIDFromHex(idParam)
-    if err != nil {
-        http.Error(w, "Invalid project ID", http.StatusBadRequest)
-        return
-    }
+	projectID, err := primitive.ObjectIDFromHex(idParam)
+	if err != nil {
+		http.Error(w, "Invalid project ID", http.StatusBadRequest)
+		return
+	}
 
-    err = ph.service.DeleteProjectWithTasks(ctx, projectID)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	err = ph.service.DeleteProjectWithTasks(ctx, projectID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    w.WriteHeader(http.StatusAccepted)
-    json.NewEncoder(w).Encode("Delete request accepted")
+	w.WriteHeader(http.StatusAccepted)
+	json.NewEncoder(w).Encode("Delete request accepted")
 }

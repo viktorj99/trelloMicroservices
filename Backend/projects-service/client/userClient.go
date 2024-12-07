@@ -1,6 +1,7 @@
 package client
 
 import (
+	"context"
 	"log"
 	userpb "pb/userpb"
 
@@ -24,4 +25,14 @@ func NewUserClient(address string) (*UserClient, error) {
 
 func (uc *UserClient) Close() error {
 	return uc.Conn.Close()
+}
+
+func (uc *UserClient) CheckIfUserExists(ctx context.Context, userID string) (bool, error) {
+	req := &userpb.CheckUserExistsByIDRequest{UserId: userID}
+	resp, err := uc.Client.CheckUserExistsByID(ctx, req)
+	if err != nil {
+		log.Printf("Error calling CheckIfUserExists: %v", err)
+		return false, err
+	}
+	return resp.Exists, nil
 }
