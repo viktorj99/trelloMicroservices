@@ -4,21 +4,21 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 	"workflow/handlers"
 	"workflow/repositories"
 	"workflow/services"
 
 	"github.com/gorilla/mux"
-	"github.com/joho/godotenv"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 func main() {
 	// Load environment variables
-	err := godotenv.Load(".env")
-	if err != nil {
-		log.Println("Warning: .env file not found or failed to load")
-	}
+	// err := godotenv.Load(".env")
+	// if err != nil {
+	// 	log.Println("Warning: .env file not found or failed to load")
+	// }
 
 	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)
 
@@ -38,9 +38,13 @@ func main() {
 	}
 	defer driver.Close()
 
-	if err := driver.VerifyConnectivity(); err != nil {
-		logger.Fatalf("Failed to verify Neo4j connectivity: %v", err)
-	}
+	for i := 0; i < 10; i++ {
+		if err := driver.VerifyConnectivity(); err == nil {
+		  break
+		}
+		log.Println("Neo4j not ready yet, waiting 2s...")
+		time.Sleep(5 * time.Second)
+	  }
 
 	// Initialize repository, service, and handler
 	workflowRepo := repositories.NewWorkflowRepository(driver)
