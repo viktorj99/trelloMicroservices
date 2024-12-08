@@ -47,7 +47,7 @@ func main() {
 
 	// Initialize the service and handlers
 	service := helpers.InitializeService(ctx, logger, natsURL)
-	handler := handlers.NewProjectHandler(service, taskServiceClient)
+	handler := handlers.NewProjectHandler(service, taskServiceClient, userClient)
 
 	// Setup routes for Project REST API and gRPC
 	router := helpers.SetupRoutes(handler, userClient.Client, taskServiceClient)

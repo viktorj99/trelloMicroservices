@@ -5,6 +5,7 @@ go 1.23.3
 require (
 	github.com/microcosm-cc/bluemonday v1.0.27
 	github.com/nats-io/nats.go v1.37.0
+	github.com/nats-io/nats.go v1.37.0
 	go.mongodb.org/mongo-driver v1.17.1
 	go.opentelemetry.io/otel v1.32.0
 	go.opentelemetry.io/otel/exporters/jaeger v1.17.0

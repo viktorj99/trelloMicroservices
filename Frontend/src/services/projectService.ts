@@ -122,7 +122,7 @@ export const getAllProjects = async () => {
 	}
 };
 
-export const getAllProjectsWithUserId = async (id: number) => {
+export const getAllProjectsWithUserId = async (id: string) => {
 	try {
 		const token = getToken();
 		const url = `${BASE_URL}/user/${id}`;
@@ -135,13 +135,15 @@ export const getAllProjectsWithUserId = async (id: number) => {
 	} catch (error) {
 		if (axios.isAxiosError(error)) {
 			console.error('Error response:', error.response?.data);
+			return null;
 		} else {
 			console.error('Unexpected error:', error);
+			return null;
 		}
 	}
 };
 
-export const getAllProjectsWithManagerId = async (id: number) => {
+export const getAllProjectsWithManagerId = async (id: string) => {
 	try {
 		const token = getToken();
 		const url = `${BASE_URL}/manager/${id}`;
@@ -154,8 +156,10 @@ export const getAllProjectsWithManagerId = async (id: number) => {
 	} catch (error) {
 		if (axios.isAxiosError(error)) {
 			console.error('Error response:', error.response?.data);
+			return null;
 		} else {
 			console.error('Unexpected error:', error);
+			return null;
 		}
 	}
 };

@@ -21,13 +21,15 @@ import (
 type ProjectHandler struct {
 	service    *services.ProjectService
 	taskClient *client.TaskClient
+	userClient *client.UserClient
 }
 
 // NewProjectHandler creates a new ProjectHandler instance
-func NewProjectHandler(service *services.ProjectService, taskClient *client.TaskClient) *ProjectHandler {
+func NewProjectHandler(service *services.ProjectService, taskClient *client.TaskClient, userClient *client.UserClient) *ProjectHandler {
 	return &ProjectHandler{
 		service:    service,
 		taskClient: taskClient,
+		userClient: userClient,
 	}
 }
 
@@ -83,6 +85,28 @@ func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 		span.RecordError(err)
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
+	}
+
+	exists, err := ph.userClient.CheckIfUserExists(ctx, project.Manager.ID.Hex())
+	if err != nil {
+		http.Error(w, "Error checking manager existence", http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.Error(w, "Manager does not exist", http.StatusBadRequest)
+		return
+	}
+
+	for _, member := range project.Members {
+		memberExists, err := ph.userClient.CheckIfUserExists(ctx, member.ID.Hex())
+		if err != nil {
+			http.Error(w, "Error checking member existence", http.StatusInternalServerError)
+			return
+		}
+		if !memberExists {
+			http.Error(w, "One or more members do not exist", http.StatusBadRequest)
+			return
+		}
 	}
 
 	sanitizer := bluemonday.StrictPolicy()
@@ -145,6 +169,16 @@ func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Requ
 	if err := json.NewDecoder(r.Body).Decode(&member); err != nil {
 		span.RecordError(err)
 		http.Error(w, "Invalid member data", http.StatusBadRequest)
+		return
+	}
+
+	exists, err := ph.userClient.CheckIfUserExists(ctx, member.ID.Hex())
+	if err != nil {
+		http.Error(w, "Error checking user existence", http.StatusInternalServerError)
+		return
+	}
+	if !exists {
+		http.Error(w, "User does not exist", http.StatusBadRequest)
 		return
 	}
 

@@ -2,16 +2,39 @@ import React from 'react';
 import { List, Card, Button } from 'antd';
 import { useQuery } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { getAllProjects } from '../services/projectService';
+import { getAllProjects, getAllProjectsWithManagerId, getAllProjectsWithUserId } from '../services/projectService';
 import { DTOCreateProject } from '../entities/models/CreateProject';
+import { getTokenData, isManager, isMember } from '../utils/authHelpers';
 
 const ProjectList: React.FC = () => {
-  const { data: projects } = useQuery<DTOCreateProject[]>({
-    queryKey: ['projects'],
-    queryFn: () => getAllProjects(),
-  });
 
   const navigate = useNavigate();
+
+  const userData = getTokenData();
+
+  const fetchProjects = async () => {
+    if (isManager()) {
+      return getAllProjectsWithManagerId(userData.id);
+    } else if (isMember()) {
+      return getAllProjectsWithUserId(userData.id);
+    } else {
+      throw new Error("User role is not recognized");
+    }
+  };
+
+  const { data: projects, isLoading, error} = useQuery<DTOCreateProject[]>({
+    queryKey: ['projects', userData.id],
+    queryFn: fetchProjects,
+    enabled: !!userData,
+  });
+
+  if (isLoading){
+    return <p>Loading projects...</p>;
+  }
+
+  if (error){
+    return <p>Error loading projects: {(error as Error).message}</p>;
+  }
 
   if (!projects || projects.length === 0) {
     return <p>No projects available.</p>;

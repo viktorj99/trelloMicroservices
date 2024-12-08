@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log"
+	"time"
 	"users-service/model"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -280,4 +281,27 @@ func DeleteUserById(ctx context.Context, userId string) (*mongo.DeleteResult, er
 
 	span.SetAttributes(attribute.Int64("deletedCount", result.DeletedCount))
 	return result, nil
+}
+
+func UserExistsByID(userID string) (bool, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	objID, err := primitive.ObjectIDFromHex(userID)
+	if err != nil {
+		return false, errors.New("invalid user ID format")
+	}
+
+	filter := bson.M{"_id": objID}
+
+	err = userCollection.FindOne(ctx, filter).Err()
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			return false, nil
+		}
+		log.Println("Error checking if user exists by ID:", err)
+		return false, err
+	}
+
+	return true, nil
 }

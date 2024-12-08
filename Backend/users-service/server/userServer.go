@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	userpb "pb/userpb"
+	"users-service/repositories"
 	"users-service/services"
 )
 
@@ -33,4 +34,15 @@ func (s *UserServer) GetAllUsers(ctx context.Context, req *userpb.GetAllUsersReq
 	}
 
 	return &userpb.GetAllUsersResponse{Users: users}, nil
+}
+
+func (s *UserServer) CheckUserExistsByID(ctx context.Context, req *userpb.CheckUserExistsByIDRequest) (*userpb.CheckUserExistsByIDResponse, error) {
+	userID := req.GetUserId()
+
+	exists, err := repositories.UserExistsByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &userpb.CheckUserExistsByIDResponse{Exists: exists}, nil
 }
