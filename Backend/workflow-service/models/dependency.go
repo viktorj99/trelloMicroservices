@@ -1,7 +1,6 @@
 package models
 
-type Dependency struct {
-	FromTaskID string `json:"fromTaskID"`
-	ProjectID  string `json:"projectID"`
-	ToTaskID   string `json:"toTaskID"`
+type DependencyRequest struct {
+	TaskID      string `json:"taskId"`
+	DependentID string `json:"dependentId"`
 }

@@ -13,11 +13,26 @@ func NewWorkflowService(repo *repositories.WorkflowRepository) *WorkflowService 
 	return &WorkflowService{repo: repo}
 }
 
-func (s *WorkflowService) CreateTask(task *models.Task) error {
-	return s.repo.CreateTaskNode(task)
+func (service *WorkflowService) CreateTask(task models.Task) error {
+	return service.repo.CreateTask(task)
 }
 
-// CreateDependency delegates dependency creation to the repository
-func (s *WorkflowService) CreateDependency(dep *models.Dependency) error {
-	return s.repo.CreateDependency(dep)
+func (service *WorkflowService) TaskExists(taskID string) (bool, error) {
+	return service.repo.TaskExists(taskID)
+}
+
+func (service *WorkflowService) CreateDependency(req models.DependencyRequest) error {
+	return service.repo.CreateDependency(req.TaskID, req.DependentID)
+}
+
+func (service *WorkflowService) GetTasks() ([]map[string]interface{}, error) {
+	return service.repo.GetTasks()
+}
+
+func (service *WorkflowService) GetTasksWithDependencies() ([]map[string]interface{}, error) {
+	return service.repo.GetTasksWithDependencies()
+}
+
+func (service *WorkflowService) GetAllDependencies() ([]map[string]interface{}, error) {
+	return service.repo.GetAllDependencies()
 }

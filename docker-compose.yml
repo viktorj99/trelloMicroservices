@@ -169,7 +169,12 @@ services:
             - "7687:7687" # Bolt protocol
         environment:
             - NEO4J_AUTH=neo4j/password
+            - NEO4JLABS_PLUGINS=["apoc"]
+            - NEO4J_dbms_security_procedures_unrestricted=apoc.*
+            - NEO4J_dbms_security_procedures_allowlist=apoc.*
         volumes:
+            - ./Backend/db/neo4j/data:/data
+            - ./Backend/db/neo4j/logs:/logs
             - ./Backend/db/neo4j/certificates:/var/lib/neo4j/certificates
         networks:
             - app-network

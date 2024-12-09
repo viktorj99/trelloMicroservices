@@ -1,52 +1,211 @@
 package repositories
 
 import (
+	"fmt"
 	"workflow/models"
 
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
 type WorkflowRepository struct {
-	Driver neo4j.Driver
+	driver neo4j.Driver
 }
 
 func NewWorkflowRepository(driver neo4j.Driver) *WorkflowRepository {
-	return &WorkflowRepository{Driver: driver}
+	return &WorkflowRepository{driver: driver}
 }
 
-func (r *WorkflowRepository) CreateTaskNode(task *models.Task) error {
-	session := r.Driver.NewSession(neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+func (repo *WorkflowRepository) CreateTask(task models.Task) error {
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
 	defer session.Close()
 
-	_, err := session.Run(`
-		CREATE (t:Task {
-			id: $id,
-			projectID: $projectID,
-			name: $name,
-			description: $description,
-			blocked: $blocked
-		})
-	`, map[string]interface{}{
-		"id":          task.ID,
-		"projectID":   task.ProjectID,
-		"name":        task.Name,
-		"description": task.Description,
-		"blocked":     task.Blocked,
-	})
+	_, err := session.Run(
+		"CREATE (t:Task {id: $id, name: $name, isBlocked: $isBlocked})",
+		map[string]interface{}{
+			"id":        task.ID,
+			"name":      task.Name,
+			"isBlocked": task.IsBlocked,
+		},
+	)
 	return err
 }
 
-func (r *WorkflowRepository) CreateDependency(dep *models.Dependency) error {
-	session := r.Driver.NewSession(neo4j.SessionConfig{AccessMode: neo4j.AccessModeWrite})
+func (repo *WorkflowRepository) TaskExists(taskID string) (bool, error) {
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
 	defer session.Close()
 
-	_, err := session.Run(`
-		MATCH (a:Task {id: $fromTaskID}), (b:Task {id: $toTaskID})
-		CREATE (a)-[:DEPENDS_ON]->(b)
-		SET b.blocked = true
-	`, map[string]interface{}{
-		"fromTaskID": dep.FromTaskID,
-		"toTaskID":   dep.ToTaskID,
+	query := `
+		MATCH (t:Task {id: $id})
+		RETURN COUNT(t) > 0 AS exists
+	`
+
+	result, err := session.Run(query, map[string]interface{}{
+		"id": taskID,
 	})
+	if err != nil {
+		return false, err
+	}
+
+	if result.Next() {
+		return result.Record().Values[0].(bool), nil
+	}
+
+	return false, nil
+}
+
+
+func (repo *WorkflowRepository) CreateDependency(taskID, dependentID string) error {
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
+	defer session.Close()
+
+	// Provera ciklusa
+	result, err := session.Run(
+		"MATCH (t1:Task {id: $taskID}), (t2:Task {id: $dependentID}) "+
+			"CALL apoc.algo.dijkstra(t2, t1, 'DEPENDS_ON', 'weight') YIELD path "+
+			"RETURN path",
+		map[string]interface{}{
+			"taskID":      taskID,
+			"dependentID": dependentID,
+		},
+	)
+	if err != nil {
+		return err
+	}
+	if result.Next() {
+		return fmt.Errorf("dependency creates a cycle")
+	}
+
+	_, err = session.Run(
+		"MATCH (t1:Task {id: $taskID}), (t2:Task {id: $dependentID}) "+
+			"CREATE (t1)-[:DEPENDS_ON]->(t2)",
+		map[string]interface{}{
+			"taskID":      taskID,
+			"dependentID": dependentID,
+		},
+	)
 	return err
+}
+
+
+func (repo *WorkflowRepository) GetTasks() ([]map[string]interface{}, error) {
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
+	defer session.Close()
+	var query string
+	query = `
+		MATCH (t:Task)
+		RETURN t
+	`
+
+	result, err := session.Run(query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var tasks []map[string]interface{}
+	for result.Next() {
+		record := result.Record()
+
+		// Prvi element je uvek task Node (t)
+		taskNode := record.Values[0].(neo4j.Node)
+		tProps := taskNode.Props
+
+		task := map[string]interface{}{
+			"id":        tProps["id"],
+			"name":      tProps["name"],
+			"isBlocked": tProps["isBlocked"],
+		}
+
+		tasks = append(tasks, task)
+	}
+
+	if err := result.Err(); err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+func (repo *WorkflowRepository) GetTasksWithDependencies() ([]map[string]interface{}, error) {
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
+	defer session.Close()
+
+	query := `
+		MATCH (t:Task)
+		OPTIONAL MATCH (t)-[:DEPENDS_ON]->(dependent:Task)
+		RETURN t, collect(dependent) AS dependencies
+	`
+
+	result, err := session.Run(query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var tasks []map[string]interface{}
+	for result.Next() {
+		record := result.Record()
+
+		// Task node
+		taskNode := record.Values[0].(neo4j.Node)
+		tProps := taskNode.Props
+
+		task := map[string]interface{}{
+			"id":        tProps["id"],
+			"name":      tProps["name"],
+			"isBlocked": tProps["isBlocked"],
+		}
+
+		// Dependencies
+		depsRaw := record.Values[1].([]interface{})
+		var deps []map[string]interface{}
+		for _, d := range depsRaw {
+			if d != nil {
+				depNode := d.(neo4j.Node)
+				deps = append(deps, map[string]interface{}{
+					"id":        depNode.Props["id"],
+					"name":      depNode.Props["name"],
+					"isBlocked": depNode.Props["isBlocked"],
+				})
+			}
+		}
+		task["dependencies"] = deps
+
+		tasks = append(tasks, task)
+	}
+
+	if err := result.Err(); err != nil {
+		return nil, err
+	}
+
+	return tasks, nil
+}
+
+func (repo *WorkflowRepository) GetAllDependencies() ([]map[string]interface{}, error) {
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
+	defer session.Close()
+
+	query := `
+		MATCH (t1:Task)-[r:DEPENDS_ON]->(t2:Task)
+		RETURN t1, t2
+	`
+
+	result, err := session.Run(query, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	var dependencies []map[string]interface{}
+	for result.Next() {
+		record := result.Record()
+
+		task1 := record.Values[0].(neo4j.Node).Props
+		task2 := record.Values[1].(neo4j.Node).Props
+
+		dependency := map[string]interface{}{
+			"task":         task1,
+			"dependentOn":  task2,
+		}
+		dependencies = append(dependencies, dependency)
+	}
+
+	return dependencies, nil
 }
