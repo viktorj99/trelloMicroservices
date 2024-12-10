@@ -20,11 +20,23 @@ func (repo *WorkflowRepository) CreateTask(task models.Task) error {
 	defer session.Close()
 
 	_, err := session.Run(
-		"CREATE (t:Task {id: $id, name: $name, isBlocked: $isBlocked})",
+		`CREATE (t:Task {
+			id: $id, 
+			title: $title, 
+			description: $description,
+			status: $status,
+			project: $project,
+			member: $member,
+			isBlocked: $isBlocked
+		})`,
 		map[string]interface{}{
-			"id":        task.ID,
-			"name":      task.Name,
-			"isBlocked": task.IsBlocked,
+			"id":          task.ID,
+			"title":       task.Title,
+			"description": task.Description,
+			"status":      task.Status,
+			"project":     task.Project,
+			"member":      task.Member,
+			"isBlocked":   task.IsBlocked,
 		},
 	)
 	return err
@@ -90,8 +102,8 @@ func (repo *WorkflowRepository) CreateDependency(taskID, dependentID string) err
 func (repo *WorkflowRepository) GetTasks() ([]map[string]interface{}, error) {
 	session := repo.driver.NewSession(neo4j.SessionConfig{})
 	defer session.Close()
-	var query string
-	query = `
+
+	query := `
 		MATCH (t:Task)
 		RETURN t
 	`
@@ -104,22 +116,20 @@ func (repo *WorkflowRepository) GetTasks() ([]map[string]interface{}, error) {
 	var tasks []map[string]interface{}
 	for result.Next() {
 		record := result.Record()
-
-		// Prvi element je uvek task Node (t)
 		taskNode := record.Values[0].(neo4j.Node)
 		tProps := taskNode.Props
 
 		task := map[string]interface{}{
-			"id":        tProps["id"],
-			"name":      tProps["name"],
-			"isBlocked": tProps["isBlocked"],
+			"id":          tProps["id"],
+			"title":       tProps["title"],
+			"description": tProps["description"],
+			"status":      tProps["status"],
+			"project":     tProps["project"],
+			"member":      tProps["member"],
+			"blocked":     tProps["isBlocked"],
 		}
 
 		tasks = append(tasks, task)
-	}
-
-	if err := result.Err(); err != nil {
-		return nil, err
 	}
 
 	return tasks, nil
@@ -143,37 +153,40 @@ func (repo *WorkflowRepository) GetTasksWithDependencies() ([]map[string]interfa
 	var tasks []map[string]interface{}
 	for result.Next() {
 		record := result.Record()
-
-		// Task node
 		taskNode := record.Values[0].(neo4j.Node)
 		tProps := taskNode.Props
 
 		task := map[string]interface{}{
-			"id":        tProps["id"],
-			"name":      tProps["name"],
-			"isBlocked": tProps["isBlocked"],
+			"id":          tProps["id"],
+			"title":       tProps["title"],
+			"description": tProps["description"],
+			"status":      tProps["status"],
+			"project":     tProps["project"],
+			"member":      tProps["member"],
+			"blocked":     tProps["isBlocked"],
 		}
 
-		// Dependencies
+		// Dependencies handling
 		depsRaw := record.Values[1].([]interface{})
 		var deps []map[string]interface{}
 		for _, d := range depsRaw {
 			if d != nil {
 				depNode := d.(neo4j.Node)
+				depProps := depNode.Props
 				deps = append(deps, map[string]interface{}{
-					"id":        depNode.Props["id"],
-					"name":      depNode.Props["name"],
-					"isBlocked": depNode.Props["isBlocked"],
+					"id":          depProps["id"],
+					"title":       depProps["title"],
+					"description": depProps["description"],
+					"status":      depProps["status"],
+					"project":     depProps["project"],
+					"member":      depProps["member"],
+					"blocked":     depProps["isBlocked"],
 				})
 			}
 		}
 		task["dependencies"] = deps
 
 		tasks = append(tasks, task)
-	}
-
-	if err := result.Err(); err != nil {
-		return nil, err
 	}
 
 	return tasks, nil

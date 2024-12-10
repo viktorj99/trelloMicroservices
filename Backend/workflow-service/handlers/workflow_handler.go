@@ -22,7 +22,17 @@ func (h *WorkflowHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Proveri da li već postoji task sa istim ID-jem
+	// Validacija
+	if task.Title == "" || task.Project == "" {
+		http.Error(w, "Title and Project are required", http.StatusBadRequest)
+		return
+	}
+
+	// Postavi default status ako nije specificiran
+	if task.Status == "" {
+		task.Status = models.Pending
+	}
+
 	exists, err := h.service.TaskExists(task.ID)
 	if err != nil {
 		http.Error(w, "Failed to check task existence", http.StatusInternalServerError)
@@ -33,7 +43,6 @@ func (h *WorkflowHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Kreiraj task
 	err = h.service.CreateTask(task)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)

@@ -10,13 +10,14 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import Layout from './page/Layout';
 import CreateProject from './page/CreateProject';
 import SingleProject from './page/SingleProject';
-import ProjectList from './page/Projects'; 
-import {isManager, isMember } from './utils/authHelpers';
+import ProjectList from './page/Projects';
+import { isManager, isMember } from './utils/authHelpers';
 import Verification from './page/Verification';
 import ForgotPasswordPage from './page/ForgotPasswords';
 import ChangePasswordPage from './page/ChangePassword';
 import SendMagicLink from './page/SendMagicLink';
 import MagicLogin from './page/MagicLogin';
+import SingleTask from './page/SingleTask';
 
 export const router = createBrowserRouter([
 	{
@@ -37,15 +38,19 @@ export const router = createBrowserRouter([
 			},
 			{
 				path: '/project/:id',
-				element: (isManager() || isMember()) ? <SingleProject /> : <Navigate to="/login"/>,
+				element: isManager() || isMember() ? <SingleProject /> : <Navigate to='/login' />,
 			},
 			{
 				path: '/project/create',
-				element: isManager() ? <CreateProject /> : <Navigate to="/" />,
+				element: isManager() ? <CreateProject /> : <Navigate to='/' />,
 			},
 			{
 				path: '/projects',
-				element: (isManager() || isMember()) ? <ProjectList /> : <Navigate to="/login" />,
+				element: isManager() || isMember() ? <ProjectList /> : <Navigate to='/login' />,
+			},
+			{
+				path: '/project/:projectId/task/:taskId',
+				element: isManager() ? <SingleTask /> : <Navigate to='/login' />,
 			},
 			{
 				path: '/verification',

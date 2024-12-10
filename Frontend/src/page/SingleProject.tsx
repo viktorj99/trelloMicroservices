@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { addMember, getProject, deleteMember } from '../services/projectService';
 import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
 import { User } from '../entities/models/User';
@@ -218,6 +218,7 @@ const SingleProject = () => {
 			});
 		},
 	});
+	console.log(tasks);
 
 	const handleRemoveMemberFromTask = (taskId: string) => {
 		removeMemberFromTaskMutation.mutate(taskId);
@@ -374,6 +375,19 @@ const SingleProject = () => {
 
 						return <span>{task.member ? 'Assigned' : 'Unassigned'}</span>;
 					}}
+				/>
+				<Table.Column
+					title='Dependencies'
+					dataIndex='dependencies'
+					render={(dependencies: Task[], record: Task) => (
+						<div>
+							{record.id && (
+								<Link key={record.id} to={`/project/${id}/task/${record.id}`}>
+									See dependencies
+								</Link>
+							)}
+						</div>
+					)}
 				/>
 			</Table>
 

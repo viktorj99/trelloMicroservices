@@ -50,6 +50,7 @@ services:
         environment:
             - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
+            - WORKFLOW_SERVICE_URL=https://workflow-service:8443
         networks:
             - app-network
         volumes:

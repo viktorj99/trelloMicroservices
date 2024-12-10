@@ -1,9 +1,13 @@
 package handlers
 
 import (
+	"bytes"
+	"crypto/tls"
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
+	"os"
 
 	"tasks-service/model"
 	"tasks-service/services"
@@ -78,6 +82,59 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		h.logger.Println("Error creating task:", err)
 		http.Error(w, "Failed to create task", http.StatusInternalServerError)
 		return
+	}
+
+	workflowServiceURL := os.Getenv("WORKFLOW_SERVICE_URL")
+	if workflowServiceURL == "" {
+		workflowServiceURL = "https://workflow-service:8443"
+	}
+
+	h.logger.Printf("Attempting to call workflow service at: %s/workflow/tasks", workflowServiceURL)
+
+	workflowTask := map[string]interface{}{
+		"id":          createdTask.ID.Hex(),
+		"title":       createdTask.Title,
+		"description": createdTask.Description,
+		"status":      string(createdTask.Status),
+		"project":     createdTask.Project.Hex(),
+		"member":      createdTask.Member.Hex(),
+		"blocked":     createdTask.Blocked,
+	}
+
+	workflowJSON, err := json.Marshal(workflowTask)
+	if err != nil {
+		h.logger.Printf("Warning: Failed to marshal workflow task: %v", err)
+	} else {
+		fullURL := workflowServiceURL + "/workflow/tasks"
+		h.logger.Printf("Making POST request to: %s", fullURL)
+		
+		workflowReq, err := http.NewRequest("POST", fullURL, bytes.NewBuffer(workflowJSON))
+		if err != nil {
+			h.logger.Printf("Warning: Failed to create workflow request: %v", err)
+		} else {
+			workflowReq.Header.Set("Content-Type", "application/json")
+			client := &http.Client{
+				Transport: &http.Transport{
+					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+				},
+			}
+			
+			h.logger.Printf("Sending request to workflow service...")
+			resp, err := client.Do(workflowReq)
+			if err != nil {
+				h.logger.Printf("Warning: Failed to sync with workflow service: %v", err)
+			} else {
+				defer resp.Body.Close()
+				h.logger.Printf("Workflow service responded with status: %d", resp.StatusCode)
+				
+				body, _ := io.ReadAll(resp.Body)
+				h.logger.Printf("Response body: %s", string(body))
+				
+				if resp.StatusCode != http.StatusCreated {
+					h.logger.Printf("Warning: Workflow service responded with unexpected status: %d", resp.StatusCode)
+				}
+			}
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
