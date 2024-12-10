@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Form, Input, Button, Select, notification } from 'antd';
 import { Role } from '../entities/models/Role';
 import { RegistrationUser } from '../entities/models/RegistrationUser';
@@ -34,6 +34,7 @@ const RegistrationPage: React.FC = () => {
 				message: 'Error',
 				description: ` ${(error as Error).message}`,
 			});
+            (window as any).grecaptcha.reset();
 		},
 	});
 
