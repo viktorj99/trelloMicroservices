@@ -1,24 +1,13 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"log"
 	"net/http"
 	"strings"
 	"users-service/model"
 	"users-service/services"
-
-	"github.com/go-redis/redis/v8"
 )
-
-var ctx = context.Background()
-
-var redisClient = redis.NewClient(&redis.Options{
-	Addr:     "localhost:6379",
-	Password: "",
-	DB:       0,
-})
 
 type LoginRequest struct {
 	Username     string `json:"username"`
