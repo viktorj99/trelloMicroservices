@@ -4,10 +4,12 @@ import { TaskWithDependencies } from '../entities/models/TaskWithDependencies';
 
 const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/workflow`;
 
-export const getTasksWithDependencies = async (): Promise<TaskWithDependencies[]> => {
+export const getTasksWithDependencies = async (
+	projectID: string
+): Promise<TaskWithDependencies[]> => {
 	try {
 		const token = getToken();
-		const response = await axios.get(`${BASE_URL}/tasks/dependencies`, {
+		const response = await axios.get(`${BASE_URL}/tasks/dependencies/${projectID}`, {
 			headers: {
 				Authorization: `Bearer ${token}`,
 			},
@@ -47,9 +49,7 @@ export const addTaskDependency = async (taskId: string, dependencyId: string) =>
 	} catch (error) {
 		if (axios.isAxiosError(error)) {
 			console.error('Error assigning member to task:', error.response?.data);
-			throw new Error(
-				error.response?.data?.message || 'An error occurred while assigning the member.'
-			);
+			throw new Error(error.response?.data || 'Circular dependency detected.');
 		} else {
 			console.error('Unexpected error:', error);
 			throw new Error('An unexpected error occurred.');

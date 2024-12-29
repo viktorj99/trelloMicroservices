@@ -70,11 +70,9 @@ func (repo *WorkflowRepository) CreateDependency(taskID, dependentID string) err
 	session := repo.driver.NewSession(neo4j.SessionConfig{})
 	defer session.Close()
 
-	// Provera ciklusa
 	result, err := session.Run(
 		"MATCH (t1:Task {id: $taskID}), (t2:Task {id: $dependentID}) "+
-			"CALL apoc.algo.dijkstra(t2, t1, 'DEPENDS_ON', 'weight') YIELD path "+
-			"RETURN path",
+			"RETURN EXISTS((t2)-[:DEPENDS_ON*]->(t1)) AS hasCycle",
 		map[string]interface{}{
 			"taskID":      taskID,
 			"dependentID": dependentID,
@@ -83,8 +81,12 @@ func (repo *WorkflowRepository) CreateDependency(taskID, dependentID string) err
 	if err != nil {
 		return err
 	}
+
 	if result.Next() {
-		return fmt.Errorf("dependency creates a cycle")
+		hasCycle, _ := result.Record().Get("hasCycle")
+		if hasCycle.(bool) {
+			return fmt.Errorf("dependency creates a cycle")
+		}
 	}
 
 	_, err = session.Run(
@@ -135,17 +137,19 @@ func (repo *WorkflowRepository) GetTasks() ([]map[string]interface{}, error) {
 	return tasks, nil
 }
 
-func (repo *WorkflowRepository) GetTasksWithDependencies() ([]map[string]interface{}, error) {
+func (repo *WorkflowRepository) GetTasksWithDependencies(projectID string) ([]map[string]interface{}, error) {
 	session := repo.driver.NewSession(neo4j.SessionConfig{})
 	defer session.Close()
 
 	query := `
-		MATCH (t:Task)
+		MATCH (t:Task {project: $projectID})
 		OPTIONAL MATCH (t)-[:DEPENDS_ON]->(dependent:Task)
 		RETURN t, collect(dependent) AS dependencies
 	`
 
-	result, err := session.Run(query, nil)
+	result, err := session.Run(query, map[string]interface{}{
+		"projectID": projectID,
+	})
 	if err != nil {
 		return nil, err
 	}

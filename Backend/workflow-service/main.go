@@ -56,7 +56,7 @@ func main() {
 	router.HandleFunc("/workflow/tasks", workflowHandler.CreateTask).Methods("POST")
 	router.HandleFunc("/workflow/dependencies", workflowHandler.CreateDependency).Methods("POST")
 	router.HandleFunc("/workflow/tasks", workflowHandler.GetTasks).Methods("GET")
-	router.HandleFunc("/workflow/tasks/dependencies", workflowHandler.GetTasksWithDependencies).Methods("GET")
+	router.HandleFunc("/workflow/tasks/dependencies/{id}", workflowHandler.GetTasksWithDependencies).Methods("GET")
 	router.HandleFunc("/workflow/dependencies", workflowHandler.GetAllDependencies).Methods("GET")
 
 

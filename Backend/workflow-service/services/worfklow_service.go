@@ -29,8 +29,8 @@ func (service *WorkflowService) GetTasks() ([]map[string]interface{}, error) {
 	return service.repo.GetTasks()
 }
 
-func (service *WorkflowService) GetTasksWithDependencies() ([]map[string]interface{}, error) {
-	return service.repo.GetTasksWithDependencies()
+func (service *WorkflowService) GetTasksWithDependencies(projectID string) ([]map[string]interface{}, error) {
+	return service.repo.GetTasksWithDependencies(projectID)
 }
 
 func (service *WorkflowService) GetAllDependencies() ([]map[string]interface{}, error) {

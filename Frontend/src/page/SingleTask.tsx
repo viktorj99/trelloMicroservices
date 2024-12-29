@@ -19,7 +19,7 @@ const SingleTask = () => {
 
 	const { data: tasksWithDependencies } = useQuery({
 		queryKey: ['tasksWithDependencies'],
-		queryFn: () => getTasksWithDependencies(),
+		queryFn: () => getTasksWithDependencies(projectId!),
 	});
 
 	const filteredTasks = tasks?.filter((t) => t.id !== taskId);
@@ -44,11 +44,16 @@ const SingleTask = () => {
 		},
 	});
 
-	const hasDependency = (taskId: string) => {
+	const hasDependency = (taskIdFunc: string) => {
 		if (!tasksWithDependencies) return false;
-		return tasksWithDependencies.some((task) =>
-			task.dependencies?.some((dep) => dep.id === taskId)
+		const taskMain = tasksWithDependencies?.find((t) => t.id === taskId);
+		console.log(taskMain);
+		return taskMain?.dependencies?.some(
+			(dep) => dep.id === tasks?.find((t) => t.id === taskIdFunc)?.id
 		);
+		// return tasksWithDependencies.some((task) =>
+		// 	task.dependencies?.some((dep) => dep.id === taskId)
+		// );
 	};
 
 	return (

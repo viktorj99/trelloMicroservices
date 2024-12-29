@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"workflow/models"
 	"workflow/services"
+
+	"github.com/gorilla/mux"
 )
 
 type WorkflowHandler struct {
@@ -83,7 +85,16 @@ func (h *WorkflowHandler) GetTasks(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *WorkflowHandler) GetTasksWithDependencies(w http.ResponseWriter, r *http.Request) {
-	tasks, err := h.service.GetTasksWithDependencies()
+	vars := mux.Vars(r)
+	projectID := vars["id"]
+
+
+	if projectID == "" {
+		http.Error(w, "Project ID is required", http.StatusBadRequest)
+		return
+	}
+
+	tasks, err := h.service.GetTasksWithDependencies(projectID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

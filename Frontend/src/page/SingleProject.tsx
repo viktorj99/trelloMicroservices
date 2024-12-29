@@ -16,6 +16,8 @@ import { Task } from '../entities/models/Task';
 import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
 import { notifyMembers } from '../services/notificationService';
+import TaskGraph from '../components/TaskGraph/TaskGraph';
+import { getTasksWithDependencies } from '../services/workflowService';
 const { Option } = Select;
 
 const SingleProject = () => {
@@ -46,6 +48,11 @@ const SingleProject = () => {
 	const { data: tasks = [] } = useQuery({
 		queryKey: ['tasks'],
 		queryFn: () => getTasksByProjectId(id!),
+	});
+
+	const { data: tasksWithDependencies } = useQuery({
+		queryKey: ['tasksWithDependencies'],
+		queryFn: () => getTasksWithDependencies(id!),
 	});
 
 	useEffect(() => {
@@ -404,6 +411,7 @@ const SingleProject = () => {
 					)}
 				/>
 			</Table>
+			{tasksWithDependencies && <TaskGraph data={tasksWithDependencies} />}
 		</div>
 	);
 };
