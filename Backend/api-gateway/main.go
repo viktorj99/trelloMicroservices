@@ -24,7 +24,6 @@ var (
 )
 
 func main() {
-	// Load environment variables
 	userService = os.Getenv("USER_SERVICE")
 	projectService = os.Getenv("PROJECT_SERVICE")
 	taskService = os.Getenv("TASK_SERVICE")
@@ -39,10 +38,8 @@ func main() {
 		port = "8443"
 	}
 
-	// Initialize Circuit Breakers for services
 	initializeCircuitBreakers()
 
-	// Set up routes
 	http.Handle("/api/users/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyWithMechanisms(w, r, userService)
 	})))
@@ -82,12 +79,10 @@ func enableCORS(handler http.Handler) http.Handler {
 }
 
 func proxyWithMechanisms(w http.ResponseWriter, r *http.Request, serviceURL string) {
-	// Apply a timeout for the entire request lifecycle
 	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
 	defer cancel()
 	r = r.WithContext(ctx)
 
-	// Circuit Breaker
 	breaker := serviceCircuitBreakers[serviceURL]
 	_, err := breaker.Execute(func() (interface{}, error) {
 		return nil, callWithRetry(w, r, serviceURL)
@@ -100,7 +95,6 @@ func proxyWithMechanisms(w http.ResponseWriter, r *http.Request, serviceURL stri
 }
 
 func callWithRetry(w http.ResponseWriter, r *http.Request, serviceURL string) error {
-	// Create an exponential backoff strategy with a maximum of 5 retries
 	backoffConfig := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 5)
 
 	operation := func() error {
@@ -123,13 +117,12 @@ func forwardRequest(w http.ResponseWriter, r *http.Request, serviceURL string) e
 			MaxIdleConns:        10,
 			MaxIdleConnsPerHost: 10,
 			MaxConnsPerHost:     10,
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true}, // Skip certificate validation for internal HTTPS
+			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
 		},
 	}
 
-	// Construct the full service URL
 	newPath := strings.TrimPrefix(r.URL.Path, "/api")
-	newPath = strings.TrimSuffix(newPath, "/") // Remove trailing slash
+	newPath = strings.TrimSuffix(newPath, "/")
 
 	if !strings.HasPrefix(serviceURL, "http") {
 		serviceURL = "https://" + serviceURL
@@ -138,7 +131,6 @@ func forwardRequest(w http.ResponseWriter, r *http.Request, serviceURL string) e
 
 	log.Printf("Forwarding request to: %s", fullURL)
 
-	// Create the new request
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, fullURL, r.Body)
 	if err != nil {
 		log.Printf("Error creating request: %v", err)
@@ -153,7 +145,6 @@ func forwardRequest(w http.ResponseWriter, r *http.Request, serviceURL string) e
 	}
 	defer resp.Body.Close()
 
-	// Copy response headers and body
 	for key, values := range resp.Header {
 		for _, value := range values {
 			w.Header().Add(key, value)
@@ -165,7 +156,7 @@ func forwardRequest(w http.ResponseWriter, r *http.Request, serviceURL string) e
 }
 
 func fallbackResponse(w http.ResponseWriter) {
-	w.WriteHeader(http.StatusServiceUnavailable) // HTTP 503 Service Unavailable
+	w.WriteHeader(http.StatusServiceUnavailable)
 	w.Write([]byte("The requested service is unavailable. Please try again later."))
 }
 

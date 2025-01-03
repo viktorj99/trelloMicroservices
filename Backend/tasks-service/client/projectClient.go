@@ -3,15 +3,21 @@ package client
 import (
 	"context"
 	"fmt"
+	"time"
 
 	projectpb "pb/projectpb"
 
+	"github.com/sony/gobreaker"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 type ProjectClient struct {
-	client projectpb.ProjectServiceClient
-	conn   *grpc.ClientConn
+	client         projectpb.ProjectServiceClient
+	conn           *grpc.ClientConn
+	circuitBreaker *gobreaker.CircuitBreaker
+	retryAttempts  int
 }
 
 func NewProjectClient(address string) (*ProjectClient, error) {
@@ -22,9 +28,22 @@ func NewProjectClient(address string) (*ProjectClient, error) {
 
 	client := projectpb.NewProjectServiceClient(conn)
 
+	// Initialize circuit breaker
+	cb := gobreaker.NewCircuitBreaker(gobreaker.Settings{
+		Name:        "ProjectServiceCB",
+		MaxRequests: 5,
+		Interval:    time.Minute,
+		Timeout:     10 * time.Second,
+		OnStateChange: func(name string, from, to gobreaker.State) {
+			fmt.Printf("Circuit breaker state changed: %s -> %s\n", from.String(), to.String())
+		},
+	})
+
 	return &ProjectClient{
-		client: client,
-		conn:   conn,
+		client:         client,
+		conn:           conn,
+		circuitBreaker: cb,
+		retryAttempts:  3,
 	}, nil
 }
 
@@ -34,10 +53,44 @@ func (c *ProjectClient) Close() {
 	}
 }
 
-func (c *ProjectClient) CheckMemberInProject(ctx context.Context, projectID, memberID string, opts ...grpc.CallOption) (*projectpb.BoolResponse, error) {
-	req := &projectpb.MemberRequest{
-		ProjectId: projectID,
-		MemberId:  memberID,
+func (c *ProjectClient) withRetry(ctx context.Context, call func() error) error {
+	var err error
+	for attempt := 0; attempt < c.retryAttempts; attempt++ {
+		err = call()
+		if err == nil || status.Code(err) == codes.Canceled || status.Code(err) == codes.DeadlineExceeded {
+			break
+		}
+		fmt.Printf("Retrying after error: %v (attempt %d)\n", err, attempt+1)
+		time.Sleep(time.Duration(attempt) * time.Second) // Exponential backoff
 	}
-	return c.client.CheckMemberInProject(ctx, req, opts...)
+	return err
+}
+
+func (c *ProjectClient) CheckMemberInProject(ctx context.Context, projectID, memberID string, opts ...grpc.CallOption) (*projectpb.BoolResponse, error) {
+	var resp *projectpb.BoolResponse
+	_, err := c.circuitBreaker.Execute(func() (interface{}, error) {
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second) // Explicit timeout
+		defer cancel()
+
+		var err error
+		req := &projectpb.MemberRequest{
+			ProjectId: projectID,
+			MemberId:  memberID,
+		}
+		resp, err = c.client.CheckMemberInProject(ctx, req, opts...)
+		if err != nil {
+			if status.Code(err) == codes.DeadlineExceeded {
+				fmt.Println("Fallback: assuming member is not in project")
+				resp = &projectpb.BoolResponse{Value: false} // Default fallback response
+				return resp, nil
+			}
+			return nil, err
+		}
+		return resp, nil
+	})
+	if err != nil {
+		fmt.Printf("Error in CheckMemberInProject: %v\n", err)
+		return nil, err
+	}
+	return resp, nil
 }
