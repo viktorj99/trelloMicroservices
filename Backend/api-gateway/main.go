@@ -25,9 +25,10 @@ func main() {
 	projectService := os.Getenv("PROJECT_SERVICE")
 	taskService := os.Getenv("TASK_SERVICE")
 	notificationService := os.Getenv("NOTIFICATION_SERVICE")
+	activityHistoryService := os.Getenv("ACTIVITY_HISTORY_SERVICE")
 	port := os.Getenv("PORT")
 
-	if userService == "" || projectService == "" || taskService == "" || notificationService == "" {
+	if userService == "" || projectService == "" || taskService == "" || notificationService == "" || activityHistoryService == "" {
 		log.Fatal("One or more service addresses are not set in the environment variables")
 	}
 
@@ -50,6 +51,10 @@ func main() {
 	http.Handle("/api/notifications/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyToService(w, r, notificationService)
 	}), "NotificationsEndpoint")))
+
+	http.Handle("/api/activities/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyToService(w, r, activityHistoryService)
+	}), "ActivityHistoryEndpoint")))
 
 	log.Printf("API Gateway is running on HTTPS port %s...", port)
 	if err := http.ListenAndServeTLS(":"+port, "certificates/cert.crt", "certificates/cert.key", nil); err != nil {

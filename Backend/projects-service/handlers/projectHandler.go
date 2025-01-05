@@ -1,14 +1,21 @@
 package handlers
 
 import (
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
 	"net/http"
+	"os"
 	taskpb "pb/taskpb"
 	"projects-service/client"
 	"projects-service/model"
 	"projects-service/services"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/gorilla/mux"
 	"github.com/microcosm-cc/bluemonday"
@@ -151,6 +158,51 @@ func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(result)
 }
 
+func logActivityToService(ctx context.Context, activity model.ActivityDTO) error {
+	activityServiceURL := os.Getenv("ACTIVITY_HISTORY_SERVICE")
+	if activityServiceURL == "" {
+		log.Println("ACTIVITY_HISTORY_SERVICE environment variable is not set")
+		return fmt.Errorf("ACTIVITY_HISTORY_SERVICE environment variable is not set")
+	}
+
+	log.Printf("Activity Service URL: %s", activityServiceURL)
+
+	requestURL := fmt.Sprintf("%s/activities/create", activityServiceURL)
+	log.Printf("Activity Service Request URL: %s", requestURL)
+
+	body, err := json.Marshal(activity)
+	if err != nil {
+		log.Printf("Failed to marshal activity: %v", err)
+		return fmt.Errorf("failed to marshal activity: %w", err)
+	}
+
+	log.Printf("Activity Payload: %s", string(body))
+
+	req, err := http.NewRequestWithContext(ctx, "POST", requestURL, bytes.NewBuffer(body))
+	if err != nil {
+		log.Printf("Failed to create HTTP request: %v", err)
+		return fmt.Errorf("failed to create request: %w", err)
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Printf("Failed to send HTTP request: %v", err)
+		return fmt.Errorf("failed to send request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		responseBody, _ := io.ReadAll(resp.Body)
+		log.Printf("Failed to log activity. Status Code: %d, Response: %s", resp.StatusCode, string(responseBody))
+		return fmt.Errorf("failed to log activity, status code: %d", resp.StatusCode)
+	}
+
+	log.Println("Activity logged successfully")
+	return nil
+}
+
 func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Request) {
 	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "AddMemberToProjectHandler")
 	defer span.End()
@@ -220,6 +272,23 @@ func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Requ
 		if _, err := ph.service.UpdateProject(ctx, id, updateData); err != nil {
 			span.RecordError(err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+
+		activity := model.ActivityDTO{
+			ID:           uuid.New().String(),
+			ProjectID:    projectID,
+			UserID:       member.ID.Hex(),
+			ManagerID:    project.Manager.ID.Hex(),
+			ActivityType: "AddUser",
+			Timestamp:    time.Now(),
+			Description:  fmt.Sprintf("Manager %s added user %s to project %s.", project.Manager.ID.Hex(), member.ID.Hex(), projectID),
+		}
+
+		err := logActivityToService(ctx, activity)
+		if err != nil {
+			span.RecordError(err)
+			http.Error(w, "Failed to log activity", http.StatusInternalServerError)
 			return
 		}
 
