@@ -10,6 +10,11 @@ import (
 )
 
 func main() {
+
+	// Initialize logging
+	handlers.InitLogging()
+	defer handlers.CloseLogging()
+
 	// Initialize OpenTelemetry tracing
 	shutdown := helpers.InitTracer()
 	defer shutdown()

@@ -44,6 +44,7 @@ services:
             - app-network
         volumes:
             - ./certificates:/app/certificates
+            - ./logs:/app/logs
         depends_on:
             - mongo
             - jaeger
