@@ -41,7 +41,7 @@ func InitLogging() {
 
 	logFile, err = os.OpenFile(currentFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
-		log.Fatalf("Failed to open log file: %v", err)
+		log.Printf("Failed to open log file: %v", err)
 	}
 
 	logger = log.New(logFile, "", log.LstdFlags|log.Lshortfile)
@@ -60,7 +60,7 @@ func LogEvent(eventID string, severity EventSeverity, message string, userID str
 		var err error
 		logFile, err = os.OpenFile(newFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 		if err != nil {
-			log.Fatalf("Failed to open new log file: %v", err)
+			log.Printf("Failed to open new log file: %v", err)
 		}
 		logger = log.New(logFile, "", log.LstdFlags|log.Lshortfile)
 		currentFile = newFile
