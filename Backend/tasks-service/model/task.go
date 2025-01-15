@@ -19,3 +19,9 @@ type Task struct {
 	Member      primitive.ObjectID `bson:"member,omitempty" json:"member"`
 	Blocked     bool               `bson:"blocked,omitempty" json:"blocked"`
 }
+
+type TaskWithDependencies struct {
+	Task
+	Dependencies []Task `json:"dependencies"`
+}
+

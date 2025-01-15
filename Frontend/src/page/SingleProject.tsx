@@ -17,7 +17,7 @@ import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
 import { notifyMembers } from '../services/notificationService';
 import TaskGraph from '../components/TaskGraph/TaskGraph';
-import { getTasksWithDependencies } from '../services/workflowService';
+import { getTasksWithDependencies } from '../services/taskService';
 const { Option } = Select;
 
 const SingleProject = () => {

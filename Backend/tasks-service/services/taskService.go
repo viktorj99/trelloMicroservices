@@ -91,3 +91,8 @@ func (s *TaskService) UpdateTask(ctx context.Context, id primitive.ObjectID, upd
 	}
 	return nil
 }
+
+func (s *TaskService) GetTasksWithDependencies(ctx context.Context, projectId string) ([]model.TaskWithDependencies, error) {
+	return s.repo.GetTasksWithDependencies(ctx, projectId)
+}
+

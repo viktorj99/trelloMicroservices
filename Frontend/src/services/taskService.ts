@@ -2,6 +2,7 @@ import axios from 'axios';
 import { CreateTask } from '../entities/models/CreateTask';
 import { Task } from '../entities/models/Task';
 import { getToken } from '../utils/authHelpers';
+import { TaskWithDependencies } from '../entities/models/TaskWithDependencies';
 
 const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/tasks`;
 
@@ -143,6 +144,30 @@ export const removeMemberFromTask = async (taskId: string) => {
 			console.error('Error removing member from task:', error.response?.data);
 			throw new Error(
 				error.response?.data?.message || 'An error occurred while removing the member.'
+			);
+		} else {
+			console.error('Unexpected error:', error);
+			throw new Error('An unexpected error occurred.');
+		}
+	}
+};
+
+export const getTasksWithDependencies = async (
+	projectID: string
+): Promise<TaskWithDependencies[]> => {
+	try {
+		const token = getToken();
+		const response = await axios.get(`${BASE_URL}/dependencies/${projectID}`, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+			},
+		});
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error)) {
+			console.error('Error fetching tasks:', error.response?.data);
+			throw new Error(
+				error.response?.data?.message || 'An error occurred while fetching tasks.'
 			);
 		} else {
 			console.error('Unexpected error:', error);

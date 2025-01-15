@@ -304,3 +304,24 @@ func (h *TaskHandler) RemoveMemberFromTask(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Member removed from task successfully"))
 }
+
+func (h *TaskHandler) GetTasksWithDependencies(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	projectID := vars["projectId"]
+
+	if projectID == "" {
+		http.Error(w, "Project ID is required", http.StatusBadRequest)
+		return
+	}
+
+	ctx := r.Context()
+	tasks, err := h.service.GetTasksWithDependencies(ctx, projectID)
+	if err != nil {
+		http.Error(w, "Failed to retrieve tasks with dependencies", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(tasks)
+}
+

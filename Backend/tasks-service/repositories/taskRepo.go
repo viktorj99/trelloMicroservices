@@ -2,8 +2,11 @@ package repositories
 
 import (
 	"context"
+	"crypto/tls"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net/http"
 	"os"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -123,3 +126,65 @@ func (tr *TaskRepo) Update(ctx context.Context, id primitive.ObjectID, updateDat
 
 	return result, nil
 }
+
+func (tr *TaskRepo) GetTasksWithDependencies(ctx context.Context, projectId string) ([]model.TaskWithDependencies, error) {
+	// Convert project ID to ObjectID
+	objectID, err := primitive.ObjectIDFromHex(projectId)
+	if err != nil {
+		tr.logger.Println("Invalid project ID format:", err)
+		return nil, err
+	}
+
+	// Fetch tasks for the project
+	tasks, err := tr.GetByProjectId(ctx, objectID)
+	if err != nil {
+		tr.logger.Println("Error getting tasks:", err)
+		return nil, err
+	}
+
+	// Call workflow service to get task dependencies
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	resp, err := httpClient.Get("https://workflow-service:8443/workflow/tasks/dependencies/" + projectId)
+	if err != nil {
+		tr.logger.Println("Error calling workflow service:", err)
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		tr.logger.Printf("Workflow service returned non-200 status: %d", resp.StatusCode)
+		return nil, fmt.Errorf("workflow service error: %d", resp.StatusCode)
+	}
+
+	// Decode workflow response
+	var workflowTasks []model.TaskWithDependencies
+	if err := json.NewDecoder(resp.Body).Decode(&workflowTasks); err != nil {
+		tr.logger.Println("Error decoding workflow response:", err)
+		return nil, err
+	}
+
+	// Create a map for quick lookup of dependencies by task ID
+	workflowTaskMap := make(map[primitive.ObjectID][]model.Task)
+	for _, wfTask := range workflowTasks {
+		workflowTaskMap[wfTask.ID] = wfTask.Dependencies
+	}
+
+	// Combine tasks with dependencies
+	tasksWithDeps := make([]model.TaskWithDependencies, len(tasks))
+	for i, task := range tasks {
+		dependencies := workflowTaskMap[task.ID]
+		tasksWithDeps[i] = model.TaskWithDependencies{
+			Task:         task,
+			Dependencies: dependencies,
+		}
+	}
+
+	return tasksWithDeps, nil
+}
+
+

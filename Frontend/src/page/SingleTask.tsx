@@ -2,7 +2,8 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useParams } from 'react-router-dom';
 import { getTaskById, getTasksByProjectId } from '../services/taskService';
 import { Button, notification, Table } from 'antd';
-import { addTaskDependency, getTasksWithDependencies } from '../services/workflowService';
+import { addTaskDependency } from '../services/workflowService';
+import { getTasksWithDependencies } from '../services/taskService';
 
 const SingleTask = () => {
 	const queryClient = useQueryClient();

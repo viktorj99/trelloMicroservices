@@ -59,8 +59,6 @@ func main() {
 	router.HandleFunc("/workflow/tasks/dependencies/{id}", workflowHandler.GetTasksWithDependencies).Methods("GET")
 	router.HandleFunc("/workflow/dependencies", workflowHandler.GetAllDependencies).Methods("GET")
 
-
-
 	// HTTPS server configuration
 	httpsPort := os.Getenv("HTTPS_PORT")
 	if httpsPort == "" {
