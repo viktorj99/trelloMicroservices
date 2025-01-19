@@ -118,6 +118,7 @@ func main() {
 	router.HandleFunc("/tasks", taskHandler.GetAllTasks).Methods("GET")
 	router.HandleFunc("/tasks/{id}", taskHandler.GetTaskById).Methods("GET")
 	router.HandleFunc("/tasks/{projectId}/tasks", taskHandler.GetTasksByProjectId).Methods("GET")
+	router.HandleFunc("/tasks/{projectId}/tasks-count", taskHandler.GetTaskCountsByProjectId).Methods("GET")
 	router.HandleFunc("/tasks/create", taskHandler.CreateTask).Methods("POST")
 	router.HandleFunc("/tasks/{taskID}/assign/{memberID}", taskHandler.AssignMemberToTask).Methods("PUT")
 	router.HandleFunc("/tasks/{taskID}/member/{memberID}/toggle-status", taskHandler.ToggleTaskStatus).Methods("PUT")

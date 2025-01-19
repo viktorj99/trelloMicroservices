@@ -201,6 +201,52 @@ func (h *TaskHandler) GetTasksByProjectId(w http.ResponseWriter, r *http.Request
 	json.NewEncoder(w).Encode(tasks)
 }
 
+func (h *TaskHandler) GetTaskCountsByProjectId(w http.ResponseWriter, r *http.Request) {
+	tracer := otel.Tracer("tasks-service/handler")
+	ctx, span := tracer.Start(r.Context(), "GetTaskCountsByProjectIdHandler")
+	defer span.End()
+
+	// Extract projectId from the request
+	vars := mux.Vars(r)
+	projectId := vars["projectId"]
+	span.SetAttributes(attribute.String("project.id", projectId))
+
+	// Fetch the list of tasks for the project
+	tasks, err := h.service.GetTasksByProjectId(ctx, projectId)
+	if err != nil {
+		span.RecordError(err)
+		h.logger.Println("Error fetching tasks by project ID:", err)
+		http.Error(w, "Failed to retrieve tasks by project ID", http.StatusInternalServerError)
+		return
+	}
+
+	// Initialize counters for statuses
+	totalTasks := len(tasks)
+	taskStatusCounts := map[model.Status]int{} // Using model.Status as the key type
+
+	// Iterate through the tasks and count per status
+	for _, task := range tasks {
+		status := task.Status
+		taskStatusCounts[status]++
+	}
+
+	// Add the task counts to the tracing span
+	span.SetAttributes(attribute.Int("tasks.total", totalTasks))
+	for status, count := range taskStatusCounts {
+		span.SetAttributes(attribute.Int("tasks.status."+string(status), count)) // Convert Status to string for span
+	}
+
+	// Prepare the response data
+	response := map[string]interface{}{
+		"totalTasks":       totalTasks,
+		"taskStatusCounts": taskStatusCounts, // This will convert Status to string automatically in the JSON response
+	}
+
+	// Send the response as JSON
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(response)
+}
+
 func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 	tracer := otel.Tracer("tasks-service/handler")
 	ctx, span := tracer.Start(r.Context(), "ToggleTaskStatusHandler")

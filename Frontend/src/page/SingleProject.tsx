@@ -12,6 +12,7 @@ import {
 	assignMemberToTask,
 	toggleTaskStatus,
 	removeMemberFromTask,
+	getTaskCountsByProjectId,
 } from '../services/taskService';
 import { Task } from '../entities/models/Task';
 import { getTokenData } from '../utils/authHelpers';
@@ -50,6 +51,22 @@ const SingleProject = () => {
 		queryKey: ['tasks'],
 		queryFn: () => getTasksByProjectId(id!),
 	});
+
+	const {
+		data: taskCounts,
+		isLoading: isLoadingTaskCounts,
+		error: taskCountsError,
+	} = useQuery({
+		queryKey: ['taskCounts', id],
+		queryFn: () => getTaskCountsByProjectId(id!),
+	});
+
+	const { totalTasks, taskStatusCounts } = taskCounts || {
+		totalTasks: 0,
+		tasksStatusCounts: {},
+	};
+
+	const statusEntries = taskStatusCounts ? Object.entries(taskStatusCounts) : [];
 
 	useEffect(() => {
 		const tokenPayload = getTokenData();
@@ -116,7 +133,7 @@ const SingleProject = () => {
 		onSuccess: async (_data, userId) => {
 			try {
 				// Notify the added user
-				const addedUser = users?.find(user => user.id === userId);
+				const addedUser = users?.find((user) => user.id === userId);
 				if (addedUser && addedUser.id) {
 					await notifyMembers(project.name, [addedUser.id], 0);
 					notification.success({
@@ -127,7 +144,9 @@ const SingleProject = () => {
 			} catch (error) {
 				notification.error({
 					message: 'Notification Error',
-					description: `Member was added but notification failed: ${(error as Error).message}`,
+					description: `Member was added but notification failed: ${
+						(error as Error).message
+					}`,
 				});
 			}
 			queryClient.invalidateQueries({ queryKey: ['project', id] });
@@ -172,14 +191,13 @@ const SingleProject = () => {
 	});
 
 	const handleCreateTask = (values: any) => {
-    const sanitizedValues = {
-        ...values,
-        title: DOMPurify.sanitize(values.title),
-        description: DOMPurify.sanitize(values.description),
-    };
-    taskMutation.mutate(sanitizedValues);
-};
-
+		const sanitizedValues = {
+			...values,
+			title: DOMPurify.sanitize(values.title),
+			description: DOMPurify.sanitize(values.description),
+		};
+		taskMutation.mutate(sanitizedValues);
+	};
 
 	const assignMutation = useMutation({
 		mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
@@ -209,26 +227,26 @@ const SingleProject = () => {
 	const toggleStatusMutation = useMutation({
 		mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
 			toggleTaskStatus(taskId, memberId),
-		onSuccess: async(_, { taskId }) => {
-		const updatedTask = tasks.find((task) => task.id === taskId);
-		if (updatedTask) {
-			const assignedUser = updatedTask.member
-				? project.members.find((member : User) => member.id === updatedTask.member)
-				: null;
-			if (assignedUser) {
-				await notifyMembers(project.name, [assignedUser.id], 4);
-				notification.success({
-					message: 'Task Status Updated',
-					description: `The status of task "${updatedTask.title}" has been updated successfully!`,
+		onSuccess: async (_, { taskId }) => {
+			const updatedTask = tasks.find((task) => task.id === taskId);
+			if (updatedTask) {
+				const assignedUser = updatedTask.member
+					? project.members.find((member: User) => member.id === updatedTask.member)
+					: null;
+				if (assignedUser) {
+					await notifyMembers(project.name, [assignedUser.id], 4);
+					notification.success({
+						message: 'Task Status Updated',
+						description: `The status of task "${updatedTask.title}" has been updated successfully!`,
+					});
+				}
+				queryClient.invalidateQueries({ queryKey: ['tasks'] });
+			} else {
+				notification.error({
+					message: 'Error',
+					description: `Failed to update task status: Task not found.`,
 				});
 			}
-			queryClient.invalidateQueries({ queryKey: ['tasks'] });
-		} else {
-			notification.error({
-				message: 'Error',
-				description: `Failed to update task status: Task not found.`,
-			});
-		}
 		},
 		onError: (error: unknown) => {
 			notification.error({
@@ -247,15 +265,15 @@ const SingleProject = () => {
 	const removeMemberFromTaskMutation = useMutation({
 		mutationFn: (taskId: string) => removeMemberFromTask(taskId),
 		onSuccess: async (_, taskId) => {
-			const task = tasks.find(t => t.id === taskId);
-			if (task){
+			const task = tasks.find((t) => t.id === taskId);
+			if (task) {
 				const removedMember = project.members.find((user: User) => user.id === task.member);
 				if (removedMember) {
 					await notifyMembers(project.name, [removedMember.id], 3);
-                    notification.success({
-                        message: 'Success',
-                        description: `${removedMember.username} has been removed from the task!`,
-                    });
+					notification.success({
+						message: 'Success',
+						description: `${removedMember.username} has been removed from the task!`,
+					});
 				}
 			}
 			queryClient.invalidateQueries({ queryKey: ['tasks'] });
@@ -273,7 +291,7 @@ const SingleProject = () => {
 	};
 
 	const deleteProjectMutation = useMutation({
-		mutationFn: () => deleteProject(id!), 
+		mutationFn: () => deleteProject(id!),
 		onSuccess: () => {
 			notification.success({
 				message: 'Project Deleted',
@@ -281,7 +299,7 @@ const SingleProject = () => {
 			});
 			setTimeout(() => {
 				navigate('/');
-			}, 1000); 
+			}, 1000);
 		},
 		onError: (error: unknown) => {
 			notification.error({
@@ -290,7 +308,7 @@ const SingleProject = () => {
 			});
 		},
 	});
-	
+
 	const showDeleteConfirm = () => {
 		Modal.confirm({
 			title: 'Are you sure you want to delete this project?',
@@ -314,6 +332,13 @@ const SingleProject = () => {
 		return <p>No project data available.</p>;
 	}
 
+	if (isLoadingTaskCounts) {
+		return <div>Loading task counts...</div>;
+	}
+
+	if (taskCountsError) {
+		return <div>Error loading task counts: {taskCountsError.message}</div>;
+	}
 
 	return (
 		<div>
@@ -321,6 +346,22 @@ const SingleProject = () => {
 			<p>Expected End Date: {project.expectedEndDate}</p>
 			<p>Max Members: {project.maxMembers}</p>
 			<p>Min Members: {project.minMembers}</p>
+
+			<div>
+				<h1>Task Counts</h1>
+				<div>Total Tasks: {totalTasks}</div>
+				<div>
+					{statusEntries.length > 0 ? (
+						statusEntries.map(([status, count]) => (
+							<div key={status}>
+								{status}: {count}
+							</div>
+						))
+					) : (
+						<div>No task statuses available.</div>
+					)}
+				</div>
+			</div>
 
 			{userRole === Role.Manager && (
 				<>
@@ -358,42 +399,42 @@ const SingleProject = () => {
 			</Modal>
 
 			{/* Modal for creating a task */}
-<Modal
-    title='Create Task'
-    open={isTaskModalVisible}
-    onCancel={() => setIsTaskModalVisible(false)}
-    footer={null}
->
-    <Form form={taskForm} layout='vertical' onFinish={handleCreateTask}>
-        <Form.Item
-            label='Task Title'
-            name='title'
-            rules={[{ required: true, message: 'Please enter the task title!' }]}
-        >
-            <Input placeholder='Enter task title' />
-        </Form.Item>
+			<Modal
+				title='Create Task'
+				open={isTaskModalVisible}
+				onCancel={() => setIsTaskModalVisible(false)}
+				footer={null}
+			>
+				<Form form={taskForm} layout='vertical' onFinish={handleCreateTask}>
+					<Form.Item
+						label='Task Title'
+						name='title'
+						rules={[{ required: true, message: 'Please enter the task title!' }]}
+					>
+						<Input placeholder='Enter task title' />
+					</Form.Item>
 
-        <Form.Item
-            label='Description'
-            name='description'
-            rules={[{ required: true, message: 'Please enter the description!' }]}
-        >
-            <Input.TextArea placeholder='Enter task description' />
-        </Form.Item>
+					<Form.Item
+						label='Description'
+						name='description'
+						rules={[{ required: true, message: 'Please enter the description!' }]}
+					>
+						<Input.TextArea placeholder='Enter task description' />
+					</Form.Item>
 
-        <Form.Item name='status' initialValue='PENDING' hidden>
-            <Input type='hidden' />
-        </Form.Item>
+					<Form.Item name='status' initialValue='PENDING' hidden>
+						<Input type='hidden' />
+					</Form.Item>
 
-        <Form.Item label='Project ID' name='project' initialValue={id} hidden />
+					<Form.Item label='Project ID' name='project' initialValue={id} hidden />
 
-        <Form.Item>
-            <Button type='primary' htmlType='submit'>
-                Create Task
-            </Button>
-        </Form.Item>
-    </Form>
-</Modal>
+					<Form.Item>
+						<Button type='primary' htmlType='submit'>
+							Create Task
+						</Button>
+					</Form.Item>
+				</Form>
+			</Modal>
 
 			{/* Tasks Table */}
 			<h2>Tasks</h2>
@@ -471,10 +512,9 @@ const SingleProject = () => {
 				/>
 			</Table>
 
-
-			<Button 
-				type="primary" 
-				danger 
+			<Button
+				type='primary'
+				danger
 				onClick={() => showDeleteConfirm()}
 				style={{ marginTop: 20 }}
 			>
