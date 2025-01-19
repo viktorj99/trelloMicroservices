@@ -64,7 +64,7 @@ func main() {
 	router.HandleFunc("/tasks/dependencies/{projectId}", taskHandler.GetTasksWithDependencies).Methods("GET")
 	router.HandleFunc("/tasks/create", taskHandler.CreateTask).Methods("POST")
 	router.HandleFunc("/tasks/{taskID}/assign/{memberID}", taskHandler.AssignMemberToTask).Methods("PUT")
-	router.HandleFunc("/tasks/{taskID}/member/{memberID}/toggle-status", taskHandler.ToggleTaskStatus).Methods("PUT")
+	router.HandleFunc("/tasks/{taskID}/member/{memberID}/toggle-status/project/{projectID}", taskHandler.ToggleTaskStatus).Methods("PUT")
 	router.HandleFunc("/tasks/{taskID}/remove-member", taskHandler.RemoveMemberFromTask).Methods("PUT")
 
 	httpPort := os.Getenv("HTTP_PORT")

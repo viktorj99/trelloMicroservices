@@ -54,10 +54,12 @@ func main() {
 	// Setup router
 	router := mux.NewRouter()
 	router.HandleFunc("/workflow/tasks", workflowHandler.CreateTask).Methods("POST")
+	router.HandleFunc("/workflow/tasks/{id}", workflowHandler.GetTask).Methods("GET")
 	router.HandleFunc("/workflow/dependencies", workflowHandler.CreateDependency).Methods("POST")
 	router.HandleFunc("/workflow/tasks", workflowHandler.GetTasks).Methods("GET")
 	router.HandleFunc("/workflow/tasks/dependencies/{id}", workflowHandler.GetTasksWithDependencies).Methods("GET")
 	router.HandleFunc("/workflow/dependencies", workflowHandler.GetAllDependencies).Methods("GET")
+	router.HandleFunc("/workflow/tasks/update-status/{id}", workflowHandler.UpdateTaskStatus).Methods("PUT")
 
 	// HTTPS server configuration
 	httpsPort := os.Getenv("HTTPS_PORT")

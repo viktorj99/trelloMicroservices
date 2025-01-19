@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -200,6 +201,31 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	taskID := vars["taskID"]
 	memberID := vars["memberID"]
+	projectID := vars["projectID"]
+
+	ctx := r.Context()
+
+	tasks, err := h.service.GetTasksWithDependencies(ctx, projectID)
+	if err != nil {
+		h.logger.Println("Error fetching tasks with dependencies:", err)
+		http.Error(w, "Failed to retrieve tasks with dependencies", http.StatusInternalServerError)
+		return
+	}
+
+	objectID, err := primitive.ObjectIDFromHex(taskID)
+	if err != nil {
+		log.Fatalf("Invalid ObjectID: %v", err)
+	}
+
+	for _, task := range tasks {
+		for _, dependency := range task.Dependencies {
+			if dependency.ID == objectID && task.Status != model.Finished {
+				fmt.Println("prviiiiii " + model.Finished)
+				http.Error(w, "Task is blocked by task with title: " + task.Title, http.StatusBadRequest)
+				return
+			}
+		}
+	}
 
 	taskObjectID, err := primitive.ObjectIDFromHex(taskID)
 	if err != nil {
@@ -215,7 +241,6 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ctx := r.Context()
 	task, err := h.service.GetTaskById(ctx, taskID)
 	if err != nil {
 		h.logger.Println("Error fetching task:", err)
@@ -249,6 +274,25 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to update task status", http.StatusInternalServerError)
 		return
 	}
+
+	httpClient := &http.Client{
+		Transport: &http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		},
+	}
+
+	req, err := http.NewRequest("PUT", "https://workflow-service:8443/workflow/tasks/update-status/"+taskID, nil)
+	if err != nil {
+		h.logger.Println("Error creating PUT request:", err)
+		return
+	}
+
+	resp, err := httpClient.Do(req)
+	if err != nil {
+		h.logger.Println("Error calling workflow service:", err)
+		return
+	}
+	defer resp.Body.Close()
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Task status updated successfully"))

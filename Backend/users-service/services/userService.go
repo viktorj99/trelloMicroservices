@@ -68,9 +68,9 @@ func isCommonPassword(password string) (bool, error) {
 
 func RegisterUser(user model.User) error {
 	isCommon, err := isCommonPassword(user.Password)
-	if err != nil {
-		return fmt.Errorf("error checking common password: %v", err)
-	}
+	// if err != nil {
+	// 	return fmt.Errorf("error checking common password: %v", err)
+	// }
 	if isCommon {
 		return errors.New("password is too common, please choose a more secure password")
 	}

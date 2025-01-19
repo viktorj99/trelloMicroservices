@@ -99,11 +99,11 @@ export const assignMemberToTask = async (taskId: string, memberId: string) => {
 	}
 };
 
-export const toggleTaskStatus = async (taskId: string, memberId: string) => {
+export const toggleTaskStatus = async (taskId: string, memberId: string, projectId: string) => {
 	try {
 		const token = getToken();
 		const response = await axios.put(
-			`${BASE_URL}/${taskId}/member/${memberId}/toggle-status`,
+			`${BASE_URL}/${taskId}/member/${memberId}/toggle-status/project/${projectId}`,
 			{},
 			{
 				headers: {
@@ -116,7 +116,7 @@ export const toggleTaskStatus = async (taskId: string, memberId: string) => {
 		if (axios.isAxiosError(error)) {
 			console.error('Error toggling task status:', error.response?.data);
 			throw new Error(
-				error.response?.data?.message || 'An error occurred while toggling the task status.'
+				error.response?.data || 'An error occurred while toggling the task status.'
 			);
 		} else {
 			console.error('Unexpected error:', error);

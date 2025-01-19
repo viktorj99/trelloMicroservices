@@ -1,6 +1,7 @@
 package services
 
 import (
+	"fmt"
 	"workflow/models"
 	"workflow/repositories"
 )
@@ -35,4 +36,13 @@ func (service *WorkflowService) GetTasksWithDependencies(projectID string) ([]ma
 
 func (service *WorkflowService) GetAllDependencies() ([]map[string]interface{}, error) {
 	return service.repo.GetAllDependencies()
+}
+
+func (service *WorkflowService) GetTask(taskID string) (models.Task, error) {
+	return service.repo.GetTask(taskID)
+}
+
+func (service *WorkflowService) UpdateTask(task models.Task) error {
+	fmt.Println("Pozvao servis za update task ssssss", task.Status)
+	return service.repo.UpdateTask(task)
 }

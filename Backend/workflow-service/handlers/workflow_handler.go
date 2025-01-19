@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"workflow/models"
 	"workflow/services"
@@ -116,3 +117,57 @@ func (h *WorkflowHandler) GetAllDependencies(w http.ResponseWriter, r *http.Requ
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(dependencies)
 }
+
+func (h *WorkflowHandler) GetTask(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	taskID := vars["id"]
+
+	task, err := h.service.GetTask(taskID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(task)
+}
+
+func (h *WorkflowHandler) UpdateTaskStatus(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	taskID := vars["id"]
+	fmt.Println("USAO OVDEEEEE", taskID)
+	task, err := h.service.GetTask(taskID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Println("Pozvao servis za get tasks", task.Status)
+	var updateStatus models.Status
+	switch task.Status {
+	case models.Pending:
+		updateStatus = models.InProgress
+	case models.InProgress:
+		updateStatus = models.Finished
+	case models.Finished:
+		updateStatus = models.InProgress
+	default:
+		http.Error(w, "Invalid task status transition", http.StatusBadRequest)
+		return
+	}
+
+	task.Status = updateStatus
+	fmt.Println("Promenio status", task.Status)
+
+
+	err = h.service.UpdateTask(task)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	fmt.Println("Pozvao servis za update task", task.Status)
+
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(map[string]string{"message": "Task status updated successfully"})
+}
+

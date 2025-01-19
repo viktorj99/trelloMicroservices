@@ -186,8 +186,15 @@ const SingleProject = () => {
 	};
 
 	const toggleStatusMutation = useMutation({
-		mutationFn: ({ taskId, memberId }: { taskId: string; memberId: string }) =>
-			toggleTaskStatus(taskId, memberId),
+		mutationFn: ({
+			taskId,
+			memberId,
+			projectId,
+		}: {
+			taskId: string;
+			memberId: string;
+			projectId: string;
+		}) => toggleTaskStatus(taskId, memberId, projectId),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: ['tasks'] });
 			notification.success({
@@ -205,7 +212,7 @@ const SingleProject = () => {
 
 	const handleToggleTaskStatus = (taskId: string) => {
 		if (userId) {
-			toggleStatusMutation.mutate({ taskId, memberId: userId });
+			toggleStatusMutation.mutate({ taskId, memberId: userId, projectId: id! });
 		}
 	};
 

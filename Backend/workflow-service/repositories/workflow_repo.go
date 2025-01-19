@@ -226,3 +226,113 @@ func (repo *WorkflowRepository) GetAllDependencies() ([]map[string]interface{}, 
 
 	return dependencies, nil
 }
+
+func (repo *WorkflowRepository) GetTask(taskID string) (models.Task, error) {
+    fmt.Println("🔎 Pozivam GetTask za taskID:", taskID)
+
+    session := repo.driver.NewSession(neo4j.SessionConfig{})
+    defer session.Close()
+
+    query := `
+        MATCH (t:Task {id: $id})
+        RETURN t
+    `
+
+    result, err := session.Run(query, map[string]interface{}{
+        "id": taskID,
+    })
+    if err != nil {
+        fmt.Println("❌ GREŠKA: Neo4j upit nije uspeo za taskID:", taskID, "Error:", err)
+        return models.Task{}, err
+    }
+
+    if !result.Next() {
+        fmt.Println("⚠️ Task sa ID", taskID, "nije pronađen u bazi!")
+        return models.Task{}, fmt.Errorf("task not found")
+    }
+
+    record := result.Record()
+    taskNode, ok := record.Values[0].(neo4j.Node)
+    if !ok {
+        fmt.Println("❌ GREŠKA: Neo4j nije vratio validan čvor za taskID:", taskID)
+        return models.Task{}, fmt.Errorf("invalid task node")
+    }
+
+    taskProps := taskNode.Props
+    fmt.Println("✅ Task pronađen u bazi:", taskProps)
+
+    task := models.Task{}
+
+    if id, ok := taskProps["id"].(string); ok {
+        task.ID = id
+    }
+
+    if statusStr, ok := taskProps["status"].(string); ok {
+		task.Status = models.Status(statusStr)
+	}
+
+    if title, ok := taskProps["title"].(string); ok {
+        task.Title = title
+    }
+
+    if description, ok := taskProps["description"].(string); ok {
+        task.Description = description
+    }
+
+    if project, ok := taskProps["project"].(string); ok {
+        task.Project = project
+    }
+
+    if member, ok := taskProps["member"].(string); ok {
+        task.Member = member
+    }
+
+    if isBlocked, ok := taskProps["isBlocked"].(bool); ok {
+        task.IsBlocked = isBlocked
+    }
+
+    fmt.Println("✅ Finalni Task objekat:", task)
+
+    return task, nil
+}
+
+
+
+func (repo *WorkflowRepository) UpdateTask(task models.Task) error {
+	fmt.Println("Dosao u repooo", task.Status)
+    if task.ID == "" {
+        return fmt.Errorf("task ID cannot be empty")
+    }
+    if task.Status == "" {
+        return fmt.Errorf("status cannot be empty")
+    }
+
+    session := repo.driver.NewSession(neo4j.SessionConfig{})
+    defer session.Close()
+
+    query := `
+        MATCH (t:Task {id: $id})
+        SET t.status = $status
+    `
+
+    result, err := session.Run(query, map[string]interface{}{
+        "id": task.ID,
+        "status": task.Status,
+    })
+    if err != nil {
+        return err
+    }
+
+    summary, err := result.Consume()
+    if err != nil {
+        return err
+    }
+
+    if summary.Counters().PropertiesSet() == 0 {
+        return fmt.Errorf("no task updated, task with ID %s not found", task.ID)
+    }
+
+    return nil
+}
+
+
