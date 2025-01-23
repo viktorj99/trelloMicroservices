@@ -39,6 +39,11 @@ const SingleProject = () => {
 	const [userId, setUserId] = useState<string | null>(null);
 	const navigate = useNavigate();
 
+	const formatDate = (dateString: string) => {
+		const options = { year: 'numeric', month: 'long', day: 'numeric' } as const;
+		return new Date(dateString).toLocaleDateString(undefined, options);
+	};
+
 	const {
 		data: project,
 		isLoading,
@@ -378,6 +383,19 @@ const SingleProject = () => {
 	return (
 		<div>
 			<h1>{project.name}</h1>
+
+			{project?.finishedDate && (
+				<>
+					<p style={{ color: 'blue' }}>Project Finished</p>
+
+					{new Date(project.finishedDate) < new Date(project.expectedEndDate) ? (
+						<p style={{ color: 'green' }}>Deadline Met</p>
+					) : (
+						<p style={{ color: 'red' }}>Deadline Exceeded</p>
+					)}
+				</>
+			)}
+
 			<p>Expected End Date: {project.expectedEndDate}</p>
 			<p>Max Members: {project.maxMembers}</p>
 			<p>Min Members: {project.minMembers}</p>
