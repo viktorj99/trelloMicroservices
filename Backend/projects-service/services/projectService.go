@@ -268,3 +268,23 @@ func (ps *ProjectService) GetProjectsByManagerID(ctx context.Context, userID pri
 	span.SetAttributes(attribute.Int("projects.count", len(projects)))
 	return projects, nil
 }
+
+func (ps *ProjectService) FinishProject(ctx context.Context, id primitive.ObjectID)(*mongo.UpdateResult, error){
+	tracer := otel.Tracer("projects-service")
+	ctx, span := tracer.Start(ctx, "FinishProjectService")
+	defer span.End()
+	
+	updateData := bson.M{
+		"$set" : bson.M{
+			"finishedDate": model.CustomDate{Time: time.Now()},
+		},
+	}
+
+	result, err := ps.repo.Update(ctx, id, updateData)
+	if err!= nil {
+        span.RecordError(err)
+        return nil, err
+    }
+
+	return result, nil
+}

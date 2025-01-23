@@ -1,7 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import { useNavigate, useParams } from 'react-router-dom';
-import { addMember, getProject, deleteMember, deleteProject } from '../services/projectService';
+import {
+	addMember,
+	getProject,
+	deleteMember,
+	deleteProject,
+	finishProject,
+} from '../services/projectService';
 import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
 import { User } from '../entities/models/User';
 import { useState, useEffect } from 'react';
@@ -309,6 +315,23 @@ const SingleProject = () => {
 		},
 	});
 
+	const finishProjectMutation = useMutation({
+		mutationFn: () => finishProject(id!),
+		onSuccess: () => {
+			notification.success({
+				message: 'Project Finished',
+				description: 'The project has been successfully finished.',
+			});
+			queryClient.invalidateQueries({ queryKey: ['project', id] }); // Invalidate the project query to refresh data
+		},
+		onError: (error: unknown) => {
+			notification.error({
+				message: 'Error',
+				description: `Finishing the project failed: ${(error as Error).message}`,
+			});
+		},
+	});
+
 	const showDeleteConfirm = () => {
 		Modal.confirm({
 			title: 'Are you sure you want to delete this project?',
@@ -317,6 +340,18 @@ const SingleProject = () => {
 			okType: 'danger',
 			cancelText: 'No',
 			onOk: () => deleteProjectMutation.mutate(),
+		});
+	};
+
+	const handleFinishProject = () => {
+		Modal.confirm({
+			title: 'Finish Project',
+			content: 'Are you sure you want to finish this project?',
+			okText: 'Yes',
+			cancelText: 'No',
+			onOk: () => {
+				finishProjectMutation.mutate();
+			},
 		});
 	};
 
@@ -519,6 +554,9 @@ const SingleProject = () => {
 				style={{ marginTop: 20 }}
 			>
 				Delete Project
+			</Button>
+			<Button type='primary' onClick={handleFinishProject} style={{ marginLeft: '10px' }}>
+				Finish Project
 			</Button>
 		</div>
 	);

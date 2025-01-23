@@ -477,3 +477,28 @@ func (ph *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) 
 	LogEvent("5000", Success, "Project: "+projectID.Hex()+" deleted successfully", userId, projectID.Hex())
 	json.NewEncoder(w).Encode("Delete request accepted")
 }
+
+func (ph *ProjectHandler) FinishProject(w http.ResponseWriter, r *http.Request){
+	ctx, span := otel.Tracer("project-service").Start(r.Context(), "FinishedProjectHandler")
+	defer span.End()
+
+	vars := mux.Vars(r)
+	idParam := vars["id"]
+
+	id, err := primitive.ObjectIDFromHex(idParam)
+	if err!= nil {
+		span.RecordError(err)
+        http.Error(w, "Invalid project ID", http.StatusBadRequest)
+        return
+	}
+
+	result, err := ph.service.FinishProject(ctx, id)
+	if err!= nil {
+        span.RecordError(err)
+        http.Error(w, "Failed to finish project: "+err.Error(), http.StatusInternalServerError)
+        return
+    }
+
+	w.Header().Set("Content-Type", "application/json")
+	json.NewEncoder(w).Encode(result)
+}

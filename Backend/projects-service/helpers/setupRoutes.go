@@ -22,6 +22,7 @@ func SetupRoutes(handler *handlers.ProjectHandler, userClient userpb.UserService
 	router.Handle("/projects/user/{id}", http.HandlerFunc(handler.FindProjectsByUserID)).Methods("GET")
 	router.Handle("/projects/manager/{id}", http.HandlerFunc(handler.FindProjectsByManagerID)).Methods("GET")
 	router.Handle("/projects/{id}", auth.EnableManager(http.HandlerFunc(handler.DeleteProject))).Methods("DELETE", "OPTIONS")
+	router.Handle("/projects/{id}/finish-project", auth.EnableManager(http.HandlerFunc(handler.FinishProject))).Methods("PUT")
 
 	router.HandleFunc("/users", func(w http.ResponseWriter, r *http.Request) {
 		handlers.GetUsersHandler(w, r, userClient)

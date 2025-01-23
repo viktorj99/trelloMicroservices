@@ -39,7 +39,7 @@ export const getProject = async (id: string) => {
 		const response = await axios.get(url, {
 			headers: {
 				Authorization: `Bearer ${token}`,
-				user_id: userId
+				user_id: userId,
 			},
 		});
 
@@ -69,7 +69,7 @@ export const addMember = async (newMember: User, projectId: string) => {
 			headers: {
 				Authorization: `Bearer ${token}`,
 				'Content-Type': 'application/json',
-				user_id: userId
+				user_id: userId,
 			},
 		});
 	} catch (error) {
@@ -96,7 +96,7 @@ export const deleteMember = async (member: User, projectId: string) => {
 			headers: {
 				Authorization: `Bearer ${token}`,
 				'Content-Type': 'application/json',
-				user_id: userId
+				user_id: userId,
 			},
 		});
 	} catch (error) {
@@ -183,7 +183,7 @@ export const deleteProject = async (projectId: string) => {
 		const response = await axios.delete(url, {
 			headers: {
 				Authorization: `Bearer ${token}`,
-				user_id: userId
+				user_id: userId,
 			},
 		});
 		return response.data;
@@ -192,6 +192,33 @@ export const deleteProject = async (projectId: string) => {
 			console.error('Error response:', error.response?.data);
 			throw new Error(
 				error.response?.data?.message || 'An error occurred while deleting the project.'
+			);
+		} else {
+			console.error('Unexpected error:', error);
+			throw new Error('An unexpected error occurred.');
+		}
+	}
+};
+
+export const finishProject = async (projectId: string) => {
+	try {
+		const token = getToken();
+		const url = `${BASE_URL}/${projectId}/finish-project`;
+		const tokenData = getTokenData();
+		const userId = tokenData.id;
+
+		const response = await axios.put(url, null, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+				user_id: userId,
+			},
+		});
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error)) {
+			console.error('Error response:', error.response?.data);
+			throw new Error(
+				error.response?.data?.message || 'An error occurred while finishing the project.'
 			);
 		} else {
 			console.error('Unexpected error:', error);

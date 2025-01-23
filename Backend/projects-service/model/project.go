@@ -50,6 +50,7 @@ type Project struct {
 	Manager         User               `bson:"manager,omitempty" json:"manager" validate:"required"`
 	Members         []User             `bson:"members,omitempty" json:"members" validate:"required,dive"`
 	IsDeleted       bool               `bson:"isDeleted,omitempty" json:"isDeleted"`
+	FinishedDate	*CustomDate 	   `bson:"finishedDate,omitempty" json:"finishedDate"`
 }
 
 type User struct {
