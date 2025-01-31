@@ -2,11 +2,13 @@ package handlers
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"net/http"
 	"tasks-service/client"
 	"tasks-service/model"
 	"tasks-service/services"
+	"time"
 
 	"github.com/gorilla/mux"
 	"github.com/microcosm-cc/bluemonday"
@@ -19,13 +21,15 @@ import (
 
 type TaskHandler struct {
 	service       *services.TaskService
+	statusService *services.TaskStatusHistoryService
 	logger        *log.Logger
 	projectClient *client.ProjectClient
 }
 
-func NewTaskHandler(service *services.TaskService, logger *log.Logger, projectClient *client.ProjectClient) *TaskHandler {
+func NewTaskHandler(service *services.TaskService, statusService *services.TaskStatusHistoryService, logger *log.Logger, projectClient *client.ProjectClient) *TaskHandler {
 	return &TaskHandler{
 		service:       service,
+		statusService: statusService,
 		logger:        logger,
 		projectClient: projectClient,
 	}
@@ -101,6 +105,14 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create task", http.StatusInternalServerError)
 		return
 	}
+
+	_, err = h.statusService.InsertStatusHistory(ctx, createdTask.ID, createdTask.Status)
+	if err!= nil {
+        span.RecordError(err)
+        h.logger.Println("Error inserting status history:", err)
+		http.Error(w, "Failed to insert status history:", http.StatusInternalServerError)
+		return
+    }
 
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusCreated)
@@ -312,6 +324,14 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	_, err = h.statusService.InsertStatusHistory(ctx, taskObjectID, updateStatus)
+	if err!= nil {
+        span.RecordError(err)
+        h.logger.Println("Error inserting status history:", err)
+		http.Error(w, "Failed to insert status history:", http.StatusInternalServerError)
+		return
+    }
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Task status updated successfully"))
 }
@@ -368,4 +388,83 @@ func (h *TaskHandler) RemoveMemberFromTask(w http.ResponseWriter, r *http.Reques
 
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Member removed from task successfully"))
+}
+
+func (h *TaskHandler) GetTaskStatusHistory(w http.ResponseWriter, r *http.Request) {
+	
+	log.Println("Debug: GetTaskStatusHistory Handler Triggered")
+	
+	tracer := otel.Tracer("tasks-service/handler")
+	ctx, span := tracer.Start(r.Context(), "GetTaskStatusHistoryHandler")
+	defer span.End()
+
+	vars := mux.Vars(r)
+	taskID := vars["taskID"]
+
+	taskObjectID, err := primitive.ObjectIDFromHex(taskID)
+	if err != nil {
+		span.RecordError(err)
+		h.logger.Println("Invalid task ID format:", err)
+		http.Error(w, "Invalid task ID foramt", http.StatusBadRequest)
+		return
+	}
+
+	span.SetAttributes(attribute.String("task.id", taskID))
+
+	records, err := h.statusService.GetStatusHistoryByTaskID(ctx, taskObjectID)
+	if err!= nil {
+		span.RecordError(err)
+		log.Println("Debug: Error fetching status history:")
+		h.logger.Println("Error fetching status history:", err)
+		http.Error(w, "Failed to retrieve status history", http.StatusInternalServerError)
+		return
+	}
+
+	if len(records) == 0 {
+		fmt.Fprintln(w, "No records found")
+		log.Println("Info: No records found")
+		return
+	}
+
+	var result []map[string]interface{}
+	currentTime := time.Now()
+
+	for i := 0; i < len(records); i++ {
+
+		log.Println("Debug: For Loop triggered")
+
+		record := records[i]
+
+		var duration time.Duration
+		if i+1 < len(records){
+			duration = records[i+1].Timestamp.Sub(record.Timestamp)
+		} else {
+			duration = currentTime.Sub(record.Timestamp)
+		}
+
+		days := int(duration.Hours()) / 24
+		hours := int(duration.Hours()) % 24
+
+		resultRecord := map[string]interface{}{
+			"id":        record.ID.Hex(),
+			"task_id":   record.TaskID.Hex(),
+			"status":    record.Status,
+			"timestamp": record.Timestamp,
+			"duration":  fmt.Sprintf("%d days, %d hours", days, hours),
+		}
+
+		result = append(result, resultRecord)
+
+		log.Println("Debug: For Loop finished")
+	}
+
+	log.Println("Debug: GetTaskStatusHistory Handler Finished")
+
+	w.Header().Set("Content-Type", "application/json")
+	if err := json.NewEncoder(w).Encode(result); err != nil {
+        log.Println("Error encoding result to JSON:", err)
+        http.Error(w, "Error encoding response", http.StatusInternalServerError)
+        return
+    }
+
 }

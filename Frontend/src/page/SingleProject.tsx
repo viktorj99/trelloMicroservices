@@ -545,9 +545,17 @@ const SingleProject = () => {
 								</Button>
 							);
 						}
-
 						return <span>{task.member ? 'Assigned' : 'Unassigned'}</span>;
 					}}
+				/>
+
+				<Table.Column
+					title='Task History'
+					render={(_, task: Task) => (
+						<Button type='link' onClick={() => navigate(`/tasks/${task.id}/history`)}>
+							View Status History
+						</Button>
+					)}
 				/>
 			</Table>
 

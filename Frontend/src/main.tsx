@@ -18,6 +18,7 @@ import ChangePasswordPage from './page/ChangePassword';
 import SendMagicLink from './page/SendMagicLink';
 import MagicLogin from './page/MagicLogin';
 import Profile from './page/Profile';
+import TaskStatusHistoryPage from './page/TaskStatusHistoryPage';
 
 export const router = createBrowserRouter([
 	{
@@ -71,6 +72,10 @@ export const router = createBrowserRouter([
 			{
 				path: '/magic-login',
 				element: <MagicLogin />,
+			},
+			{
+				path: '/tasks/:taskId/history',
+				element: <TaskStatusHistoryPage />,
 			},
 		],
 	},

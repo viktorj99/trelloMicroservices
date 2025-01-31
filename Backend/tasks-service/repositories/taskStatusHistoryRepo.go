@@ -57,7 +57,7 @@ func (tr *TaskStatusHistoryRepo) collection() *mongo.Collection {
 	return tr.cli.Database(tr.dbName).Collection("task_status_history")
 }
 
-func (tr *TaskStatusHistoryRepo) Insert(ctx context.Context, history *model.TaskStatusHistory) (*mongo.InsertOneResult, error) {
+func (tr *TaskStatusHistoryRepo) Insert(ctx context.Context, history *model.TaskStatusHistory) (*mongo.InsertOneResult, error) {	
 	tracer := otel.Tracer("tasks-service/repository")
 	ctx, span := tracer.Start(ctx, "InsertTaskStatusHistoryRepo")
 	defer span.End()
@@ -79,11 +79,14 @@ func (tr *TaskStatusHistoryRepo) Insert(ctx context.Context, history *model.Task
 		return nil, err
 	}
 
-	span.SetAttributes(attribute.String("db.inserted_id", result.InsertedID.(primitive.ObjectID).Hex()))
+	span.SetAttributes(attribute.String("db.inserted_id", result.InsertedID.(primitive.ObjectID).Hex()))	
 	return result, nil
 }
 
 func (tr *TaskStatusHistoryRepo) GetByTaskId(ctx context.Context, taskId primitive.ObjectID) ([]model.TaskStatusHistory, error) {
+	
+	log.Println("Debug: GetByTaskId Repo Triggered")
+	
 	tracer := otel.Tracer("tasks-service/repository")
 	ctx, span := tracer.Start(ctx, "GetTaskStatusHistoryByTaskIdRepo")
 	defer span.End()
@@ -94,7 +97,7 @@ func (tr *TaskStatusHistoryRepo) GetByTaskId(ctx context.Context, taskId primiti
 		attribute.String("task.id", taskId.Hex()),
 	)
 
-	var histories []model.TaskStatusHistory
+	var records []model.TaskStatusHistory
 	cursor, err := tr.collection().Find(ctx, bson.M{"taskId": taskId})
 	if err != nil {
 		tr.logger.Println("Error retrieving task status history:", err)
@@ -103,12 +106,14 @@ func (tr *TaskStatusHistoryRepo) GetByTaskId(ctx context.Context, taskId primiti
 	}
 	defer cursor.Close(ctx)
 
-	if err = cursor.All(ctx, &histories); err != nil {
+	if err = cursor.All(ctx, &records); err != nil {
 		tr.logger.Println("Error decoding task status history:", err)
 		span.RecordError(err)
 		return nil, err
 	}
 
-	span.SetAttributes(attribute.Int("history.count", len(histories)))
-	return histories, nil
+	log.Println("Debug: GetByTaskId Repo Finished")
+
+	span.SetAttributes(attribute.Int("history.count", len(records)))
+	return records, nil
 }

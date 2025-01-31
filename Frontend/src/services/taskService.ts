@@ -158,3 +158,26 @@ export const removeMemberFromTask = async (taskId: string) => {
 		}
 	}
 };
+
+export const getTaskStatusHistory = async (taskId: string) => {
+	try {
+		const token = getToken();
+		const response = await axios.get(`${BASE_URL}/${taskId}/records`, {
+			headers: {
+				Authorization: `Bearer ${token}`,
+			},
+		});
+		return response.data;
+	} catch (error) {
+		if (axios.isAxiosError(error)) {
+			console.error('Error fetching task status history:', error.response?.data);
+			throw new Error(
+				error.response?.data?.message ||
+					'An error occurred while fetching task status history.'
+			);
+		} else {
+			console.error('Unexpected error:', error);
+			throw new Error('An unexpected error occurred.');
+		}
+	}
+};

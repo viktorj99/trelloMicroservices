@@ -63,6 +63,12 @@ func main() {
 		logger.Fatal("Failed to create repository: ", err)
 	}
 
+	taskStatusHistoryRepo, err := repositories.NewTaskStatusHistoryRepo(ctx, logger, "task_status_history")
+	if err!= nil {
+        span.RecordError(err)
+        logger.Fatal("Failed to create task status history repository: ", err)
+    }
+
 	errChan := make(chan error)
 
 	go func() {
@@ -105,7 +111,9 @@ func main() {
 	taskService := services.NewTaskService(taskRepo, natsClient, logger)
 	go taskService.Start()
 
-	taskHandler := handlers.NewTaskHandler(taskService, logger, projectServiceClient)
+	taskStatusHistoryService := services.NewTaskStatusHistoryService(taskStatusHistoryRepo, logger)
+
+	taskHandler := handlers.NewTaskHandler(taskService, taskStatusHistoryService, logger, projectServiceClient)
 	router := mux.NewRouter()
 
 	router.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {
@@ -123,6 +131,7 @@ func main() {
 	router.HandleFunc("/tasks/{taskID}/assign/{memberID}", taskHandler.AssignMemberToTask).Methods("PUT")
 	router.HandleFunc("/tasks/{taskID}/member/{memberID}/toggle-status", taskHandler.ToggleTaskStatus).Methods("PUT")
 	router.HandleFunc("/tasks/{taskID}/remove-member", taskHandler.RemoveMemberFromTask).Methods("PUT")
+	router.HandleFunc("/tasks/{taskID}/records", taskHandler.GetTaskStatusHistory).Methods("GET")
 
 	httpPort := os.Getenv("HTTP_PORT")
 	if httpPort == "" {
