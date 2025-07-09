@@ -15,6 +15,7 @@ import (
 	"tasks-service/server"
 	"tasks-service/services"
 
+	"github.com/colinmarc/hdfs"
 	"github.com/gorilla/mux"
 	"github.com/joho/godotenv"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -63,6 +64,20 @@ func main() {
 		logger.Fatal("Failed to create repository: ", err)
 	}
 
+	documentRepo, err := repositories.NewDocumentRepo(ctx, logger, "documents")
+	if err != nil {
+		span.RecordError(err)
+		logger.Fatal("Failed to create document repository: ", err)
+	}
+
+	hdfsClient, err := hdfs.New("namenode.hadoop:9000")
+	if err != nil {
+		span.RecordError(err)
+		logger.Fatal("Failed to create HDFS client: ", err)
+	}
+
+	documentService := services.NewDocumentService(documentRepo, hdfsClient)
+
 	errChan := make(chan error)
 
 	go func() {
@@ -106,6 +121,7 @@ func main() {
 	go taskService.Start()
 
 	taskHandler := handlers.NewTaskHandler(taskService, logger, projectServiceClient)
+	documentHandler := handlers.NewDocumentHandler(documentService, logger) // Create Document Handler
 	router := mux.NewRouter()
 
 	router.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {
@@ -122,6 +138,10 @@ func main() {
 	router.HandleFunc("/tasks/{taskID}/assign/{memberID}", taskHandler.AssignMemberToTask).Methods("PUT")
 	router.HandleFunc("/tasks/{taskID}/member/{memberID}/toggle-status", taskHandler.ToggleTaskStatus).Methods("PUT")
 	router.HandleFunc("/tasks/{taskID}/remove-member", taskHandler.RemoveMemberFromTask).Methods("PUT")
+
+	router.HandleFunc("/tasks/{taskId}/documents", documentHandler.UploadDocument).Methods("POST")
+	router.HandleFunc("/tasks/{taskId}/documents", documentHandler.GetDocumentsHandler).Methods("GET")
+	router.HandleFunc("/tasks/{taskId}/documents/{docName}/download", documentHandler.DownloadDocument).Methods("GET")
 
 	httpPort := os.Getenv("HTTP_PORT")
 	if httpPort == "" {
