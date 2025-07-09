@@ -2,7 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import DOMPurify from 'dompurify';
 import { useNavigate, useParams } from 'react-router-dom';
 import { addMember, getProject, deleteMember, deleteProject } from '../services/projectService';
-import { Button, Form, Input, Modal, notification, Select, Table } from 'antd';
+import { Button, Form, Input, Modal, notification, Select, Table, Upload, UploadFile } from 'antd';
 import { User } from '../entities/models/User';
 import { useState, useEffect } from 'react';
 import { Role } from '../entities/models/Role';
@@ -17,6 +17,8 @@ import { Task } from '../entities/models/Task';
 import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
 import { notifyMembers } from '../services/notificationService';
+import { uploadTaskDocument, getTaskDocuments, getDocumentDownloadUrl, deleteTaskDocument } from '../services/documentService'; 
+import { Document } from '../entities/models/Document';
 
 const { Option } = Select;
 
@@ -302,6 +304,126 @@ const SingleProject = () => {
 		});
 	};
 
+	const TaskDocuments = ({
+		task,
+		userId,
+		userRole,
+		}: {
+		task: Task;
+		userId: string;
+		userRole: Role;
+		}) => {
+		const [fileList, setFileList] = useState<UploadFile[]>([]);
+		const queryClient = useQueryClient();
+
+		const handleUpload = async () => {
+			const file = fileList[0]?.originFileObj as File;
+			if (!file) return;
+
+			const formData = new FormData();
+			formData.append('fileName', file.name);
+			formData.append('taskID', task.id!);
+			formData.append('userID', userId);
+			formData.append('file', file);
+
+			try {
+			await uploadTaskDocument(task.id!, formData);
+			notification.success({
+				message: 'Success',
+				description: 'File uploaded successfully!',
+			});
+			setFileList([]);
+			queryClient.invalidateQueries({ queryKey: ['documents', task.id] });
+			} catch (err) {
+			notification.error({
+				message: 'Upload failed',
+				description: (err as Error).message,
+			});
+			}
+		};
+
+		return (
+			<div>
+			{userRole === Role.Member && task.member === userId && (
+				<div style={{ marginBottom: 8 }}>
+				<Upload
+					beforeUpload={() => false}
+					fileList={fileList}
+					onChange={({ fileList }) => setFileList(fileList)}
+					maxCount={1}
+				>
+					<Button>Select File</Button>
+				</Upload>
+				<Button
+					type="primary"
+					onClick={handleUpload}
+					disabled={fileList.length === 0}
+					style={{ marginTop: 8 }}
+				>
+					Upload
+				</Button>
+				</div>
+			)}
+			<DocumentList taskId={task.id!} />
+			</div>
+		);
+		};
+
+	const DocumentList = ({ taskId }: { taskId: string }) => {
+		const { data: documents, isLoading } = useQuery<Document[]>({
+			queryKey: ['documents', taskId],
+			queryFn: () => getTaskDocuments(taskId),
+		});
+
+		const handleDeleteDocument = async (fileName: string) => {
+			try {
+			await deleteTaskDocument(taskId, fileName);
+			notification.success({ message: 'Deleted', description: 'Document deleted successfully' });
+			queryClient.invalidateQueries({ queryKey: ['documents', taskId] });
+			} catch (error) {
+			notification.error({ message: 'Delete failed', description: (error as Error).message });
+			}
+		};
+
+		if (isLoading) return <p>Loading documents...</p>;
+
+		if (!documents || !Array.isArray(documents) || documents.length === 0) {
+			return <p>No documents found.</p>;
+		}
+
+		return (
+			<ul style={{ marginTop: 8, paddingLeft: 16 }}>
+			{documents.map((doc) => (
+				<li key={doc._id} style={{ marginBottom: 4 }}>
+				<a
+				href={getDocumentDownloadUrl(taskId, doc.file_name)}
+				target="_blank"
+				rel="noopener noreferrer"
+				>
+				📎 {doc.file_name}
+				</a>
+					<Button
+					type="link"
+					danger
+					onClick={() => handleDeleteDocument(doc.file_name)}
+					style={{
+						marginLeft: 8,
+						border: '1px solid red',
+						color: 'red',
+						padding: '0 8px',
+						height: 24,
+						fontSize: 12,
+					}}
+					>
+					Delete
+					</Button>
+				</li>
+			))}
+			</ul>
+		);
+	};
+
+
 	if (isLoading || usersLoading) {
 		return <p>Loading project data...</p>;
 	}
@@ -358,42 +480,42 @@ const SingleProject = () => {
 			</Modal>
 
 			{/* Modal for creating a task */}
-<Modal
-    title='Create Task'
-    open={isTaskModalVisible}
-    onCancel={() => setIsTaskModalVisible(false)}
-    footer={null}
->
-    <Form form={taskForm} layout='vertical' onFinish={handleCreateTask}>
-        <Form.Item
-            label='Task Title'
-            name='title'
-            rules={[{ required: true, message: 'Please enter the task title!' }]}
-        >
-            <Input placeholder='Enter task title' />
-        </Form.Item>
+			<Modal
+				title='Create Task'
+				open={isTaskModalVisible}
+				onCancel={() => setIsTaskModalVisible(false)}
+				footer={null}
+			>
+				<Form form={taskForm} layout='vertical' onFinish={handleCreateTask}>
+					<Form.Item
+						label='Task Title'
+						name='title'
+						rules={[{ required: true, message: 'Please enter the task title!' }]}
+					>
+						<Input placeholder='Enter task title' />
+					</Form.Item>
 
-        <Form.Item
-            label='Description'
-            name='description'
-            rules={[{ required: true, message: 'Please enter the description!' }]}
-        >
-            <Input.TextArea placeholder='Enter task description' />
-        </Form.Item>
+					<Form.Item
+						label='Description'
+						name='description'
+						rules={[{ required: true, message: 'Please enter the description!' }]}
+					>
+						<Input.TextArea placeholder='Enter task description' />
+					</Form.Item>
 
-        <Form.Item name='status' initialValue='PENDING' hidden>
-            <Input type='hidden' />
-        </Form.Item>
+					<Form.Item name='status' initialValue='PENDING' hidden>
+						<Input type='hidden' />
+					</Form.Item>
 
-        <Form.Item label='Project ID' name='project' initialValue={id} hidden />
+					<Form.Item label='Project ID' name='project' initialValue={id} hidden />
 
-        <Form.Item>
-            <Button type='primary' htmlType='submit'>
-                Create Task
-            </Button>
-        </Form.Item>
-    </Form>
-</Modal>
+					<Form.Item>
+						<Button type='primary' htmlType='submit'>
+							Create Task
+						</Button>
+					</Form.Item>
+				</Form>
+			</Modal>
 
 			{/* Tasks Table */}
 			<h2>Tasks</h2>
@@ -454,6 +576,13 @@ const SingleProject = () => {
 
 						return <span>{task.member ? 'Assigned' : 'Unassigned'}</span>;
 					}}
+				/>
+
+				<Table.Column
+					title="Documents"
+					render={(_, task: Task) => (
+						<TaskDocuments task={task} userId={userId!} userRole={userRole!} />
+					)}
 				/>
 			</Table>
 

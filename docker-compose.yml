@@ -69,8 +69,13 @@ services:
             - ./certificates:/app/certificates
             - ./Backend/tasks-service/.env:/app/.env
         depends_on:
-            - mongo
-            - jaeger
+            mongo:
+                condition: service_started
+            jaeger:
+                condition: service_started
+            namenode:
+                condition: service_healthy
+            
 
     notifications-service:
         build:
@@ -223,9 +228,48 @@ services:
             - tasks-service
             - notifications-service
 
+    namenode:
+        image: bde2020/hadoop-namenode:latest  
+        hostname: namenode.hadoop
+        ports:
+            - "9000:9000"
+            - "50070:50070"  
+        volumes:
+            - ./Backend/db/namenode-vol:/hadoop/dfs/name
+        environment:
+            - CLUSTER_NAME=hadoop
+            - CORE_CONF_fs_defaultFS=hdfs://namenode.hadoop:9000
+        networks:
+            - app-network
+        healthcheck:
+            test: ["CMD", "nc", "-z", "localhost", "9000"]
+            interval: 5s
+            timeout: 3s
+            retries: 5
+
+    datanode:
+        image: bde2020/hadoop-datanode:latest  
+        hostname: datanode.hadoop
+        ports:
+            - "50075:50075"  
+            - "50010:50010"
+            - "8020:8020"
+        volumes:
+            - ./Backend/db/datanode-vol:/hadoop/dfs/data
+        environment:
+            - CLUSTER_NAME=hadoop
+            - NAMENODE_HOST=namenode.hadoop:9000
+            - HADOOP_NAMENODE=hdfs://namenode.hadoop:9000
+            - CORE_CONF_fs_defaultFS=hdfs://namenode.hadoop:9000
+            - HDFS_CONF_dfs_datanode_address=0.0.0.0:8020 
+        networks:
+            - app-network
+
 networks:
     app-network:
         driver: bridge
 
 volumes:
     cass_store:
+    namenode-vol: 
+    datanode-vol: 

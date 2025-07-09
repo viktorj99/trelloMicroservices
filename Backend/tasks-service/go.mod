@@ -20,6 +20,7 @@ require (
 	github.com/aymerick/douceur v0.2.0 // indirect
 	github.com/go-logr/logr v1.4.2 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
+	github.com/golang/protobuf v1.5.4 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/css v1.0.1 // indirect
 	github.com/nats-io/nkeys v0.4.7 // indirect
@@ -30,6 +31,7 @@ require (
 )
 
 require (
+	github.com/colinmarc/hdfs v1.1.3
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/klauspost/compress v1.17.2 // indirect
 	github.com/microcosm-cc/bluemonday v1.0.27
