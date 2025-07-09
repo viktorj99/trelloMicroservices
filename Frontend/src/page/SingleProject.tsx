@@ -17,7 +17,7 @@ import { Task } from '../entities/models/Task';
 import { getTokenData } from '../utils/authHelpers';
 import { getAllUserMembers } from '../services/userService';
 import { notifyMembers } from '../services/notificationService';
-import { uploadTaskDocument, getTaskDocuments, getDocumentDownloadUrl } from '../services/documentService'; 
+import { uploadTaskDocument, getTaskDocuments, getDocumentDownloadUrl, deleteTaskDocument } from '../services/documentService'; 
 import { Document } from '../entities/models/Document';
 
 const { Option } = Select;
@@ -370,33 +370,59 @@ const SingleProject = () => {
 		};
 
 	const DocumentList = ({ taskId }: { taskId: string }) => {
-	const { data: documents, isLoading } = useQuery<Document[]>({
-		queryKey: ['documents', taskId],
-		queryFn: () => getTaskDocuments(taskId),
-	});
+		const { data: documents, isLoading } = useQuery<Document[]>({
+			queryKey: ['documents', taskId],
+			queryFn: () => getTaskDocuments(taskId),
+		});
 
-	if (isLoading) return <p>Loading documents...</p>;
+		const handleDeleteDocument = async (fileName: string) => {
+			try {
+			await deleteTaskDocument(taskId, fileName);
+			notification.success({ message: 'Deleted', description: 'Document deleted successfully' });
+			queryClient.invalidateQueries({ queryKey: ['documents', taskId] });
+			} catch (error) {
+			notification.error({ message: 'Delete failed', description: (error as Error).message });
+			}
+		};
 
-	if (!documents || !Array.isArray(documents) || documents.length === 0) {
-		return <p>No documents found.</p>;
-	}
+		if (isLoading) return <p>Loading documents...</p>;
 
-	return (
-		<ul style={{ marginTop: 8, paddingLeft: 16 }}>
-		{documents.map((doc) => (
-			<li key={doc._id} style={{ marginBottom: 4 }}>
-			<a
-			href={getDocumentDownloadUrl(taskId, doc.file_name)}
-			target="_blank"
-			rel="noopener noreferrer"
-			>
-			📎 {doc.file_name}
-			</a>
-			</li>
-		))}
-		</ul>
-	);
+		if (!documents || !Array.isArray(documents) || documents.length === 0) {
+			return <p>No documents found.</p>;
+		}
+
+		return (
+			<ul style={{ marginTop: 8, paddingLeft: 16 }}>
+			{documents.map((doc) => (
+				<li key={doc._id} style={{ marginBottom: 4 }}>
+				<a
+				href={getDocumentDownloadUrl(taskId, doc.file_name)}
+				target="_blank"
+				rel="noopener noreferrer"
+				>
+				📎 {doc.file_name}
+				</a>
+					<Button
+					type="link"
+					danger
+					onClick={() => handleDeleteDocument(doc.file_name)}
+					style={{
+						marginLeft: 8,
+						border: '1px solid red',
+						color: 'red',
+						padding: '0 8px',
+						height: 24,
+						fontSize: 12,
+					}}
+					>
+					Delete
+					</Button>
+				</li>
+			))}
+			</ul>
+		);
 	};
+
 
 	if (isLoading || usersLoading) {
 		return <p>Loading project data...</p>;

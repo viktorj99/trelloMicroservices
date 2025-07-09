@@ -26,3 +26,11 @@ export const getTaskDocuments = (taskId: string) => {
 export const getDocumentDownloadUrl = (taskId: string, fileName: string): string => {
   return `${BASE_URL}/tasks/${taskId}/documents/${encodeURIComponent(fileName)}/download`;
 };
+
+
+export const deleteTaskDocument = (taskId: string, fileName: string) => {
+  const token = getToken();
+  return axios.delete(`${BASE_URL}/tasks/${taskId}/documents/${encodeURIComponent(fileName)}`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+};

@@ -139,9 +139,10 @@ func main() {
 	router.HandleFunc("/tasks/{taskID}/member/{memberID}/toggle-status", taskHandler.ToggleTaskStatus).Methods("PUT")
 	router.HandleFunc("/tasks/{taskID}/remove-member", taskHandler.RemoveMemberFromTask).Methods("PUT")
 
-	router.HandleFunc("/tasks/{taskId}/documents", documentHandler.UploadDocument).Methods("POST")
+	router.HandleFunc("/tasks/{taskId}/documents", documentHandler.UploadDocumentHandler).Methods("POST")
 	router.HandleFunc("/tasks/{taskId}/documents", documentHandler.GetDocumentsHandler).Methods("GET")
-	router.HandleFunc("/tasks/{taskId}/documents/{docName}/download", documentHandler.DownloadDocument).Methods("GET")
+	router.HandleFunc("/tasks/{taskId}/documents/{docName}/download", documentHandler.DownloadDocumentHandler).Methods("GET")
+	router.HandleFunc("/tasks/{taskId}/documents/{docName}", documentHandler.DeleteDocumentHandler).Methods("DELETE")
 
 	httpPort := os.Getenv("HTTP_PORT")
 	if httpPort == "" {

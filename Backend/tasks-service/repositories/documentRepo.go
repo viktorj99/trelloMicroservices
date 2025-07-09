@@ -154,3 +154,30 @@ func (dr *DocumentRepo) FindDocumentByID(ctx context.Context, id string) (*model
 
 	return &doc, nil
 }
+
+func (dr *DocumentRepo) DeleteDocument(filter bson.M) (*mongo.DeleteResult, error) {
+	return dr.collection().DeleteOne(context.Background(), filter)
+}
+
+func (dr *DocumentRepo) DeleteDocumentByTaskIDAndName(ctx context.Context, taskID, fileName string) error {
+	objectID, err := primitive.ObjectIDFromHex(taskID)
+	if err != nil {
+		return fmt.Errorf("invalid task ID: %v", err)
+	}
+
+	filter := bson.M{
+		"task_id":   objectID,
+		"file_name": fileName,
+	}
+
+	result, err := dr.collection().DeleteOne(ctx, filter)
+	if err != nil {
+		return fmt.Errorf("failed to delete document: %v", err)
+	}
+
+	if result.DeletedCount == 0 {
+		return fmt.Errorf("no document found to delete")
+	}
+
+	return nil
+}

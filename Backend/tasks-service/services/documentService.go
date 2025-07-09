@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/colinmarc/hdfs"
+	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
 )
 
@@ -126,4 +127,32 @@ func (service *DocumentService) DownloadDocument(filePath string) ([]byte, error
 	}
 
 	return content, nil
+}
+
+func (service *DocumentService) DeleteDocument(ctx context.Context, taskID, fileName string) error {
+	// Delete from HDFS
+	path := fmt.Sprintf("/tasks/%s/%s", taskID, fileName)
+	if err := service.hdfsClient.Remove(path); err != nil {
+		return fmt.Errorf("failed to delete file from HDFS: %v", err)
+	}
+
+	// Delete from MongoDB
+	err := service.repo.DeleteDocumentByTaskIDAndName(ctx, taskID, fileName)
+	if err != nil {
+		return fmt.Errorf("failed to delete document metadata from MongoDB: %v", err)
+	}
+
+	return nil
+}
+
+func (service *DocumentService) DeleteDocumentMetadata(taskID, fileName string) error {
+	filter := bson.M{
+		"task_id":   taskID,
+		"file_name": fileName,
+	}
+	_, err := service.repo.DeleteDocument(filter)
+	if err != nil {
+		return fmt.Errorf("failed to delete document metadata: %v", err)
+	}
+	return nil
 }

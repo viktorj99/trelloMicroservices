@@ -6,6 +6,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/url"
 	"path/filepath"
 	"strconv"
 	"strings"
@@ -27,7 +28,7 @@ func NewDocumentHandler(service *services.DocumentService, logger *log.Logger) *
 }
 
 // UploadDocument handles file upload to a task's document folder
-func (h *DocumentHandler) UploadDocument(w http.ResponseWriter, r *http.Request) {
+func (h *DocumentHandler) UploadDocumentHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	taskID := vars["taskId"]
 
@@ -83,7 +84,7 @@ func (h *DocumentHandler) GetDocumentsHandler(w http.ResponseWriter, r *http.Req
 }
 
 // DownloadDocument handles downloading a file from HDFS
-func (h *DocumentHandler) DownloadDocument(w http.ResponseWriter, r *http.Request) {
+func (h *DocumentHandler) DownloadDocumentHandler(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	taskID := vars["taskId"]
 	docName := vars["docName"]
@@ -108,4 +109,25 @@ func (h *DocumentHandler) DownloadDocument(w http.ResponseWriter, r *http.Reques
 	w.Header().Set("Content-Length", strconv.Itoa(len(content)))
 
 	w.Write(content)
+}
+
+func (h *DocumentHandler) DeleteDocumentHandler(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	taskID := vars["taskId"]
+	encodedFileName := vars["docName"]
+
+	fileName, err := url.PathUnescape(encodedFileName)
+	if err != nil {
+		http.Error(w, "Invalid file name", http.StatusBadRequest)
+		return
+	}
+
+	// Now use the decoded `fileName` for matching in Mongo
+	err = h.service.DeleteDocument(r.Context(), taskID, fileName)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("Error deleting document: %v", err), http.StatusInternalServerError)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
