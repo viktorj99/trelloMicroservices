@@ -13,6 +13,7 @@ import (
 	"github.com/cenkalti/backoff/v4"
 	"github.com/sony/gobreaker"
 
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/jaeger"
 	"go.opentelemetry.io/otel/sdk/resource"
@@ -33,41 +34,40 @@ func main() {
 	shutdown := initTracer()
 	defer shutdown()
 
-	userService := os.Getenv("USER_SERVICE")
-	projectService := os.Getenv("PROJECT_SERVICE")
-	taskService := os.Getenv("TASK_SERVICE")
-	notificationService := os.Getenv("NOTIFICATION_SERVICE")
-	port := os.Getenv("PORT")
-
-	if userService == "" || projectService == "" || taskService == "" || notificationService == "" {
-		log.Fatal("One or more service addresses are not set in the environment variables")
-	}
-
+	userService = os.Getenv("USER_SERVICE")
+	projectService = os.Getenv("PROJECT_SERVICE")
+	taskService = os.Getenv("TASK_SERVICE")
+	notificationService = os.Getenv("NOTIFICATION_SERVICE")
+	port = os.Getenv("PORT")
 	if port == "" {
 		port = "8443"
 	}
 
+	if userService == "" || projectService == "" || taskService == "" || notificationService == "" {
+		log.Fatal("Missing service env vars")
+	}
+
 	initializeCircuitBreakers()
 
-	http.Handle("/api/users/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/api/users/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyWithMechanisms(w, r, userService)
-	})))
+	}), "UsersEndpoint")))
 
-	http.Handle("/api/projects/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/api/projects/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyWithMechanisms(w, r, projectService)
-	})))
+	}), "ProjectsEndpoint")))
 
-	http.Handle("/api/tasks/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/api/tasks/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyWithMechanisms(w, r, taskService)
-	})))
+	}), "TasksEndpoint")))
 
-	http.Handle("/api/notifications/", enableCORS(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/api/notifications/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyWithMechanisms(w, r, notificationService)
-	})))
+	}), "NotificationsEndpoint")))
 
-	log.Printf("API Gateway is running on HTTPS port %s...", port)
+	log.Printf("API Gateway running on HTTPS port %s...", port)
 	if err := http.ListenAndServeTLS(":"+port, "certificates/cert.crt", "certificates/cert.key", nil); err != nil {
-		log.Fatalf("Failed to start API Gateway HTTPS server: %v", err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
 
@@ -82,7 +82,6 @@ func enableCORS(handler http.Handler) http.Handler {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-
 		handler.ServeHTTP(w, r)
 	})
 }
@@ -92,7 +91,13 @@ func proxyWithMechanisms(w http.ResponseWriter, r *http.Request, serviceURL stri
 	defer cancel()
 	r = r.WithContext(ctx)
 
-	breaker := serviceCircuitBreakers[serviceURL]
+	breaker, ok := serviceCircuitBreakers[serviceURL]
+	if !ok || breaker == nil {
+		log.Printf("Circuit breaker not found for service: %s", serviceURL)
+		fallbackResponse(w)
+		return
+	}
+
 	_, err := breaker.Execute(func() (interface{}, error) {
 		return nil, callWithRetry(w, r, serviceURL)
 	})
@@ -104,35 +109,22 @@ func proxyWithMechanisms(w http.ResponseWriter, r *http.Request, serviceURL stri
 }
 
 func callWithRetry(w http.ResponseWriter, r *http.Request, serviceURL string) error {
-	backoffConfig := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 5)
-
-	operation := func() error {
+	backoffConfig := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)
+	return backoff.Retry(func() error {
 		return forwardRequest(w, r, serviceURL)
-	}
-
-	err := backoff.Retry(operation, backoffConfig)
-	if err != nil {
-		log.Printf("All retry attempts failed for service %s: %v", serviceURL, err)
-		return err
-	}
-
-	return nil
+	}, backoffConfig)
 }
 
 func forwardRequest(w http.ResponseWriter, r *http.Request, serviceURL string) error {
 	client := &http.Client{
 		Timeout: time.Second * 10,
-		Transport: &http.Transport{
-			MaxIdleConns:        10,
-			MaxIdleConnsPerHost: 10,
-			MaxConnsPerHost:     10,
-			TLSClientConfig:     &tls.Config{InsecureSkipVerify: true},
-		},
+		Transport: otelhttp.NewTransport(&http.Transport{
+			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
+		}),
 	}
 
 	newPath := strings.TrimPrefix(r.URL.Path, "/api")
 	newPath = strings.TrimSuffix(newPath, "/")
-
 	if !strings.HasPrefix(serviceURL, "http") {
 		serviceURL = "https://" + serviceURL
 	}
@@ -142,14 +134,12 @@ func forwardRequest(w http.ResponseWriter, r *http.Request, serviceURL string) e
 
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, fullURL, r.Body)
 	if err != nil {
-		log.Printf("Error creating request: %v", err)
 		return err
 	}
 	req.Header = r.Header
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Error during request to %s: %v", fullURL, err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -166,17 +156,22 @@ func forwardRequest(w http.ResponseWriter, r *http.Request, serviceURL string) e
 
 func fallbackResponse(w http.ResponseWriter) {
 	w.WriteHeader(http.StatusServiceUnavailable)
-	w.Write([]byte("The requested service is unavailable. Please try again later."))
+	w.Write([]byte("Service temporarily unavailable. Please try again later."))
 }
 
 func initializeCircuitBreakers() {
-	serviceURLs := []string{userService, projectService, taskService, notificationService}
+	serviceURLs := []string{
+		userService,
+		projectService,
+		taskService,
+		notificationService,
+	}
 	for _, serviceURL := range serviceURLs {
 		serviceCircuitBreakers[serviceURL] = gobreaker.NewCircuitBreaker(gobreaker.Settings{
 			Name:        serviceURL,
 			MaxRequests: 5,
 			Interval:    time.Minute,
-			Timeout:     time.Second * 30,
+			Timeout:     30 * time.Second,
 		})
 	}
 }
