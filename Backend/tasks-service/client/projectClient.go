@@ -68,26 +68,33 @@ func (c *ProjectClient) withRetry(ctx context.Context, call func() error) error 
 
 func (c *ProjectClient) CheckMemberInProject(ctx context.Context, projectID, memberID string, opts ...grpc.CallOption) (*projectpb.BoolResponse, error) {
 	var resp *projectpb.BoolResponse
-	_, err := c.circuitBreaker.Execute(func() (interface{}, error) {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second) // Explicit timeout
-		defer cancel()
 
-		var err error
-		req := &projectpb.MemberRequest{
-			ProjectId: projectID,
-			MemberId:  memberID,
-		}
-		resp, err = c.client.CheckMemberInProject(ctx, req, opts...)
-		if err != nil {
-			if status.Code(err) == codes.DeadlineExceeded {
-				fmt.Println("Fallback: assuming member is not in project")
-				resp = &projectpb.BoolResponse{Value: false} // Default fallback response
-				return resp, nil
+	_, err := c.circuitBreaker.Execute(func() (interface{}, error) {
+		// Retry wrapper
+		err := c.withRetry(ctx, func() error {
+			reqCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+
+			req := &projectpb.MemberRequest{
+				ProjectId: projectID,
+				MemberId:  memberID,
 			}
+
+			var err error
+			resp, err = c.client.CheckMemberInProject(reqCtx, req, opts...)
+			if err != nil && status.Code(err) == codes.DeadlineExceeded {
+				fmt.Println("Fallback: assuming member is not in project")
+				resp = &projectpb.BoolResponse{Value: false}
+				return nil
+			}
+			return err
+		})
+		if err != nil {
 			return nil, err
 		}
 		return resp, nil
 	})
+
 	if err != nil {
 		fmt.Printf("Error in CheckMemberInProject: %v\n", err)
 		return nil, err

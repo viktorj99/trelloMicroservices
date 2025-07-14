@@ -69,23 +69,29 @@ func (uc *UserClient) withRetry(ctx context.Context, call func() error) error {
 
 func (uc *UserClient) CheckIfUserExists(ctx context.Context, userID string) (bool, error) {
 	var resp *userpb.CheckUserExistsByIDResponse
-	_, err := uc.CircuitBreaker.Execute(func() (interface{}, error) {
-		ctx, cancel := context.WithTimeout(ctx, 5*time.Second) // Explicit timeout
-		defer cancel()
 
-		var err error
-		req := &userpb.CheckUserExistsByIDRequest{UserId: userID}
-		resp, err = uc.Client.CheckUserExistsByID(ctx, req)
-		if err != nil {
-			if status.Code(err) == codes.DeadlineExceeded {
+	_, err := uc.CircuitBreaker.Execute(func() (interface{}, error) {
+		// Retry wrapper
+		err := uc.withRetry(ctx, func() error {
+			reqCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			defer cancel()
+
+			req := &userpb.CheckUserExistsByIDRequest{UserId: userID}
+			var err error
+			resp, err = uc.Client.CheckUserExistsByID(reqCtx, req)
+			if err != nil && status.Code(err) == codes.DeadlineExceeded {
 				fmt.Println("Fallback: treating as user does not exist")
-				resp = &userpb.CheckUserExistsByIDResponse{Exists: false} // Default fallback response
-				return resp, nil
+				resp = &userpb.CheckUserExistsByIDResponse{Exists: false}
+				return nil // fallback triggers successful return
 			}
+			return err
+		})
+		if err != nil {
 			return nil, err
 		}
 		return resp, nil
 	})
+
 	if err != nil {
 		log.Printf("Error in CheckIfUserExists: %v", err)
 		return false, err
