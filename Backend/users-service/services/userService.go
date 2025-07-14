@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,6 +20,8 @@ import (
 	"github.com/hashicorp/consul/api"
 	"github.com/microcosm-cc/bluemonday"
 	"go.mongodb.org/mongo-driver/mongo"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"golang.org/x/crypto/bcrypt"
 )
 
@@ -76,24 +77,42 @@ func init() {
 	}
 }
 
-func isCommonPassword(password string) (bool, error) {
-	key := fmt.Sprintf("common_passwords/%s", password)
+func isCommonPassword(ctx context.Context, password string) (bool, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "isCommonPassword")
+	defer span.End()
 
+	span.SetAttributes(attribute.String("password", password))
+
+	key := fmt.Sprintf("common_passwords/%s", password)
 	kvPair, _, err := consulClient.KV().Get(key, nil)
 	if err != nil {
+		span.RecordError(err)
 		return false, err
 	}
 
 	return kvPair != nil, nil
 }
 
-func RegisterUser(user model.User) error {
-	isCommon, err := isCommonPassword(user.Password)
+func RegisterUser(ctx context.Context, user model.User) error {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "RegisterUser")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("user.firstName", user.FirstName),
+		attribute.String("user.lastName", user.LastName),
+		attribute.String("user.email", user.Email),
+		attribute.String("user.username", user.Username),
+	)
+
+	isCommon, err := isCommonPassword(ctx, user.Password)
 	if err != nil {
+		span.RecordError(err)
 		return fmt.Errorf("error checking common password: %v", err)
 	}
 	if isCommon {
-		return errors.New("password is too common, please choose a more secure password")
+		err := errors.New("password is too common, please choose a more secure password")
+		span.RecordError(err)
+		return err
 	}
 
 	sanitizer := bluemonday.StrictPolicy()
@@ -103,56 +122,92 @@ func RegisterUser(user model.User) error {
 	user.Username = sanitizer.Sanitize(user.Username)
 
 	if user.FirstName == "" || user.LastName == "" || user.Email == "" || user.Username == "" || user.Password == "" || user.Role == "" {
-		return errors.New("all fields are required")
+		err := errors.New("all fields are required")
+		span.RecordError(err)
+		return err
 	}
 
 	if user.Role != model.RoleManager && user.Role != model.RoleMember {
-		return errors.New("invalid role; must be 'Manager' or 'Member'")
+		err := errors.New("invalid role; must be 'Manager' or 'Member'")
+		span.RecordError(err)
+		return err
 	}
 
 	if !emailRegex.MatchString(user.Email) || !isValidDomain(user.Email) {
-		return errors.New("invalid email format or domain")
+		err := errors.New("invalid email format or domain")
+		span.RecordError(err)
+		return err
 	}
 
 	if !isValidPassword(user.Password) {
-		return errors.New("password must be at least 8 characters long, contain one uppercase letter, one lowercase letter and one digit")
+		err := errors.New("password must be at least 8 characters long, contain one uppercase letter, one lowercase letter, and one digit")
+		span.RecordError(err)
+		return err
 	}
 
 	hashedPassword, err := utils.HashPassword(user.Password)
 	if err != nil {
+		span.RecordError(err)
 		return errors.New("failed to hash password")
 	}
 
 	user.Password = hashedPassword
 
-	_, err = repositories.CreateUser(user)
+	_, err = repositories.CreateUser(ctx, user)
 	if err != nil {
+		span.RecordError(err)
 		return err
 	}
 
 	return nil
 }
 
-func Login(username, password string) (string, error) {
-	user, err := repositories.GetUserByUsername(username)
+func isValidPassword(password string) bool {
+	if len(password) < 8 {
+		return false
+	}
+
+	hasLower := strings.IndexFunc(password, unicode.IsLower) >= 0
+
+	hasUpper := strings.IndexFunc(password, unicode.IsUpper) >= 0
+
+	hasDigit := strings.IndexFunc(password, unicode.IsDigit) >= 0
+
+	return hasLower && hasUpper && hasDigit
+}
+
+func Login(ctx context.Context, username, password string) (string, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "Login")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.username", username))
+
+	user, err := repositories.GetUserByUsername(ctx, username)
 	if err != nil {
+		span.RecordError(err)
 		return "", errors.New("user not found")
 	}
 
 	if user.IsActive == false {
-		return "", errors.New("account is not active")
+		err := errors.New("account is not active")
+		span.RecordError(err)
+		return "", err
 	}
 
 	err = bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password))
 	if err != nil {
-		return "", errors.New("invalid password")
+		err := errors.New("invalid password")
+		span.RecordError(err)
+		return "", err
 	}
 
 	token, err := GenerateJWTToken(user.ID, user.Username, user.Role)
 	if err != nil {
+		span.RecordError(err)
 		return "", err
 	}
 
+	span.SetAttributes(attribute.String("user.token", token))
 	return token, nil
 }
 
@@ -183,41 +238,92 @@ func GenerateJWTToken(id, username, role string) (string, error) {
 	return tokenString, nil
 }
 
-func GetAllUsers() ([]model.User, error) {
-	return repositories.GetAllUsers()
-}
+func GetAllUsers(ctx context.Context) ([]model.User, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetAllUsers")
+	defer span.End()
 
-func GetAllUserMembers() ([]model.User, error) {
-	return repositories.GetAllUserMembers()
-}
-
-func GetUserByID(userID string) (model.User, error) {
-	return repositories.GetUserByID(userID)
-}
-
-func GetUserByEmail(email string) (model.User, error) {
-	user, err := repositories.GetUserByEmail(email)
+	users, err := repositories.GetAllUsers(ctx)
 	if err != nil {
-		if err.Error() == "user not found" {
-			return model.User{}, errors.New("user not found")
-		}
-		log.Printf("Service: Error while fetching user by email: %v", err)
-		return model.User{}, errors.New("internal server error")
+		span.RecordError(err)
+		return nil, err
+	}
+
+	span.SetAttributes(attribute.Int("users.count", len(users)))
+	return users, nil
+}
+
+func GetAllUserMembers(ctx context.Context) ([]model.User, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetAllUserMembers")
+	defer span.End()
+
+	users, err := repositories.GetAllUserMembers(ctx)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+
+	span.SetAttributes(attribute.Int("users.count", len(users)))
+	return users, nil
+}
+
+func GetUserByID(ctx context.Context, userID string) (model.User, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByID")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.id", userID))
+
+	user, err := repositories.GetUserByID(ctx, userID)
+	if err != nil {
+		span.RecordError(err)
+		return model.User{}, err
+	}
+
+	return user, nil
+}
+
+func GetUserByEmail(ctx context.Context, email string) (model.User, error) {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "GetUserByEmail")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.email", email))
+
+	user, err := repositories.GetUserByEmail(ctx, email)
+	if err != nil {
+		span.RecordError(err)
+		return model.User{}, err
 	}
 
 	return user, nil
 }
 
 func DeleteUser(ctx context.Context, userId string) (*mongo.DeleteResult, error) {
-	return repositories.DeleteUserById(ctx, userId)
+	ctx, span := otel.Tracer("users-service").Start(ctx, "DeleteUser")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("user.id", userId))
+
+	result, err := repositories.DeleteUserById(ctx, userId)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+
+	span.SetAttributes(attribute.Int64("deletedCount", result.DeletedCount))
+	return result, nil
 }
-func VerifyCaptcha(captchaToken string) error {
-	// Prepare the request to Google reCAPTCHA API
+
+func VerifyCaptcha(ctx context.Context, captchaToken string) error {
+	ctx, span := otel.Tracer("users-service").Start(ctx, "VerifyCaptcha")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("captcha.token", captchaToken))
+
 	resp, err := http.PostForm("https://www.google.com/recaptcha/api/siteverify", url.Values{
 		"secret":   {recaptchaSecret},
 		"response": {captchaToken},
 	})
 	if err != nil {
+		span.RecordError(err)
 		return err
 	}
 	defer resp.Body.Close()
@@ -227,30 +333,15 @@ func VerifyCaptcha(captchaToken string) error {
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		span.RecordError(err)
 		return err
 	}
 
 	if !result.Success {
-		return errors.New("captcha verification failed")
+		err := errors.New("captcha verification failed")
+		span.RecordError(err)
+		return err
 	}
 
 	return nil
-}
-
-func isValidPassword(password string) bool {
-	// Check the overall length
-	if !passwordLengthRegex.MatchString(password) {
-		return false
-	}
-
-	// Check for at least one lowercase letter
-	hasLower := strings.IndexFunc(password, unicode.IsLower) >= 0
-
-	// Check for at least one uppercase letter
-	hasUpper := strings.IndexFunc(password, unicode.IsUpper) >= 0
-
-	// Check for at least one digit
-	hasDigit := strings.IndexFunc(password, unicode.IsDigit) >= 0
-
-	return hasLower && hasUpper && hasDigit
 }

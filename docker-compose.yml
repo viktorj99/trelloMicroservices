@@ -14,6 +14,8 @@ services:
             REDIS_PORT: 6379
             CONSUL_DB: consul
             CONSUL_DB_PORT: 8500
+            JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+            OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
         networks:
             - app-network
         volumes:
@@ -22,6 +24,7 @@ services:
         depends_on:
             - mongo
             - consul
+            - jaeger
 
     projects-service:
         build:
@@ -35,12 +38,16 @@ services:
             - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
             - NATS_URL=nats://nats:4222
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
         networks:
             - app-network
         volumes:
             - ./certificates:/app/certificates
+            - ./logs:/app/logs
         depends_on:
             - mongo
+            - jaeger
 
     tasks-service:
         build:
@@ -54,13 +61,21 @@ services:
             - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
             - NATS_URL=nats://nats:4222
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
         networks:
             - app-network
         volumes:
             - ./certificates:/app/certificates
             - ./Backend/tasks-service/.env:/app/.env
         depends_on:
-            - mongo
+            mongo:
+                condition: service_started
+            jaeger:
+                condition: service_started
+            namenode:
+                condition: service_healthy
+            
 
     notifications-service:
         build:
@@ -83,10 +98,13 @@ services:
             - CASS_DB=cassandra:9042
             # NoSQL: Extremely important! Cassandra takes a lot of time to start!
             # If we don't wait for it to fully initialize we will get exceptions and will not be able to connect!
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
 
         depends_on:
             cassandra:
                 condition: service_healthy
+            
 
     cassandra:
         image: cassandra
@@ -102,6 +120,19 @@ services:
         networks:
             - app-network
 
+    jaeger:
+        image: jaegertracing/all-in-one:latest
+        ports:
+            - "16686:16686"  # Jaeger UI
+            - "14268:14268"  # HTTP Collector
+            - "4317:4317"    # gRPC
+            - "4318:4318"
+        networks:
+            - app-network
+        environment:
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+
+
     api-gateway:
         build:
             context: ./Backend/api-gateway
@@ -115,6 +146,7 @@ services:
             - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
             - NOTIFICATION_SERVICE=https://notifications-service:8443
             - PORT=8443
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
 
         networks:
             - app-network
@@ -196,9 +228,48 @@ services:
             - tasks-service
             - notifications-service
 
+    namenode:
+        image: bde2020/hadoop-namenode:latest  
+        hostname: namenode.hadoop
+        ports:
+            - "9000:9000"
+            - "50070:50070"  
+        volumes:
+            - ./Backend/db/namenode-vol:/hadoop/dfs/name
+        environment:
+            - CLUSTER_NAME=hadoop
+            - CORE_CONF_fs_defaultFS=hdfs://namenode.hadoop:9000
+        networks:
+            - app-network
+        healthcheck:
+            test: ["CMD", "nc", "-z", "localhost", "9000"]
+            interval: 5s
+            timeout: 3s
+            retries: 5
+
+    datanode:
+        image: bde2020/hadoop-datanode:latest  
+        hostname: datanode.hadoop
+        ports:
+            - "50075:50075"  
+            - "50010:50010"
+            - "8020:8020"
+        volumes:
+            - ./Backend/db/datanode-vol:/hadoop/dfs/data
+        environment:
+            - CLUSTER_NAME=hadoop
+            - NAMENODE_HOST=namenode.hadoop:9000
+            - HADOOP_NAMENODE=hdfs://namenode.hadoop:9000
+            - CORE_CONF_fs_defaultFS=hdfs://namenode.hadoop:9000
+            - HDFS_CONF_dfs_datanode_address=0.0.0.0:8020 
+        networks:
+            - app-network
+
 networks:
     app-network:
         driver: bridge
 
 volumes:
     cass_store:
+    namenode-vol: 
+    datanode-vol: 

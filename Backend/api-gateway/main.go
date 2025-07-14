@@ -12,6 +12,12 @@ import (
 
 	"github.com/cenkalti/backoff/v4"
 	"github.com/sony/gobreaker"
+
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/exporters/jaeger"
+	"go.opentelemetry.io/otel/sdk/resource"
+	"go.opentelemetry.io/otel/sdk/trace"
+	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
 )
 
 var (
@@ -24,11 +30,14 @@ var (
 )
 
 func main() {
-	userService = os.Getenv("USER_SERVICE")
-	projectService = os.Getenv("PROJECT_SERVICE")
-	taskService = os.Getenv("TASK_SERVICE")
-	notificationService = os.Getenv("NOTIFICATION_SERVICE")
-	port = os.Getenv("PORT")
+	shutdown := initTracer()
+	defer shutdown()
+
+	userService := os.Getenv("USER_SERVICE")
+	projectService := os.Getenv("PROJECT_SERVICE")
+	taskService := os.Getenv("TASK_SERVICE")
+	notificationService := os.Getenv("NOTIFICATION_SERVICE")
+	port := os.Getenv("PORT")
 
 	if userService == "" || projectService == "" || taskService == "" || notificationService == "" {
 		log.Fatal("One or more service addresses are not set in the environment variables")
@@ -169,5 +178,30 @@ func initializeCircuitBreakers() {
 			Interval:    time.Minute,
 			Timeout:     time.Second * 30,
 		})
+	}
+}
+
+func initTracer() func() {
+	jaegerEndpoint := os.Getenv("JAEGER_ENDPOINT")
+	if jaegerEndpoint == "" {
+		jaegerEndpoint = "http://jaeger:14268/api/traces"
+	}
+
+	exporter, err := jaeger.New(jaeger.WithCollectorEndpoint(jaeger.WithEndpoint(jaegerEndpoint)))
+	if err != nil {
+		log.Fatalf("failed to create Jaeger exporter: %v", err)
+	}
+
+	tp := trace.NewTracerProvider(
+		trace.WithBatcher(exporter),
+		trace.WithResource(resource.NewWithAttributes(
+			semconv.SchemaURL,
+			semconv.ServiceNameKey.String("api-gateway"),
+		)),
+	)
+
+	otel.SetTracerProvider(tp)
+	return func() {
+		_ = tp.Shutdown(context.Background())
 	}
 }

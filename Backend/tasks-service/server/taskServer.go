@@ -7,6 +7,8 @@ import (
 	"tasks-service/repositories"
 
 	"go.mongodb.org/mongo-driver/bson/primitive"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 	"google.golang.org/protobuf/types/known/wrapperspb"
 )
 
@@ -25,25 +27,30 @@ func NewTaskServer(taskRepo *repositories.TaskRepo) *TaskServer {
 
 // GetUnassignedTasks implements the GetUnassignedTasks gRPC method
 func (s *TaskServer) GetUnassignedTasks(ctx context.Context, req *taskpb.ProjectRequest) (*taskpb.TaskResponse, error) {
-	// Convert project_id string to primitive.ObjectID
+	ctx, span := otel.Tracer("tasks-service").Start(ctx, "GetUnassignedTasks")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("project.id", req.GetProjectId()))
+
 	projectID, err := primitive.ObjectIDFromHex(req.GetProjectId())
 	if err != nil {
+		span.RecordError(err)
 		return nil, fmt.Errorf("invalid project ID: %v", err)
 	}
 
-	// Fetch tasks that are unassigned (i.e., member is empty or zero)
 	tasks, err := s.taskRepo.GetUnassignedTasks(ctx, projectID)
 	if err != nil {
+		span.RecordError(err)
 		return nil, fmt.Errorf("error fetching unassigned tasks: %v", err)
 	}
 
-	// Convert tasks to gRPC response format
+	span.SetAttributes(attribute.Int("tasks.count", len(tasks)))
+
 	var taskResponses []*taskpb.Task
 	for _, task := range tasks {
-		// Convert Member to *wrapperspb.StringValue, which is nullable in your proto file
 		var member *wrapperspb.StringValue
 		if !task.Member.IsZero() {
-			member = wrapperspb.String(task.Member.Hex()) // Wrap ObjectID as string
+			member = wrapperspb.String(task.Member.Hex())
 		}
 
 		taskResponses = append(taskResponses, &taskpb.Task{
@@ -51,28 +58,34 @@ func (s *TaskServer) GetUnassignedTasks(ctx context.Context, req *taskpb.Project
 			Title:       task.Title,
 			Description: task.Description,
 			Status:      string(task.Status),
-			Project:     task.Project.Hex(), // Assuming project is stored as ObjectID
-			Member:      member,             // Nullable member field
+			Project:     task.Project.Hex(),
+			Member:      member,
 			Blocked:     task.Blocked,
 		})
 	}
 
-	// Return the tasks in the gRPC response
 	return &taskpb.TaskResponse{Tasks: taskResponses}, nil
 }
 
 func (s *TaskServer) CheckMemberTasksInProgress(ctx context.Context, req *taskpb.MemberRequest) (*taskpb.BoolResponse, error) {
-	// Convert member_id string to primitive.ObjectID
+	ctx, span := otel.Tracer("tasks-service").Start(ctx, "CheckMemberTasksInProgress")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("member.id", req.GetMemberId()))
+
 	memberID, err := primitive.ObjectIDFromHex(req.GetMemberId())
 	if err != nil {
+		span.RecordError(err)
 		return nil, fmt.Errorf("invalid member ID: %v", err)
 	}
 
-	// Check if the member has any in-progress tasks
 	hasTasks, err := s.taskRepo.HasPendingOrInProgressTasks(ctx, memberID)
 	if err != nil {
+		span.RecordError(err)
 		return nil, fmt.Errorf("error checking in-progress tasks: %v", err)
 	}
+
+	span.SetAttributes(attribute.Bool("has.inProgress.tasks", hasTasks))
 
 	return &taskpb.BoolResponse{Value: hasTasks}, nil
 }
