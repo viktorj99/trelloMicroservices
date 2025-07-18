@@ -1,275 +1,286 @@
 services:
-    users-service:
-        build:
-            context: ./Backend
-            dockerfile: users-service/Dockerfile
-        ports:
-            - "8081:8080"
-            - "8444:8443"
-            - "50051:50051"
-        environment:
-            MONGO_DB_URI: mongodb://mongo:27017
-            PORT: 8080
-            REDIS_HOST: redis
-            REDIS_PORT: 6379
-            CONSUL_DB: consul
-            CONSUL_DB_PORT: 8500
-            JAEGER_ENDPOINT: http://jaeger:14268/api/traces
-            OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
-        networks:
-            - app-network
-        volumes:
-            - ./certificates:/app/certificates
-            - ./Backend/users-service/config/common_passwords.txt:/app/config/common_passwords.txt
-        depends_on:
-            - mongo
-            - consul
-            - jaeger
+  users-service:
+    build:
+      context: ./Backend
+      dockerfile: users-service/Dockerfile
+    ports:
+      - "8081:8080"
+      - "8444:8443"
+      - "50051:50051"
+    environment:
+      MONGO_DB_URI: mongodb://mongo:27017
+      PORT: 8080
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      CONSUL_DB: consul
+      CONSUL_DB_PORT: 8500
+      JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
+    networks:
+      - app-network
+    volumes:
+      - ./certificates:/app/certificates
+      - ./Backend/users-service/config/common_passwords.txt:/app/config/common_passwords.txt
+    depends_on:
+      - mongo
+      - consul
+      - jaeger
 
-    projects-service:
-        build:
-            context: ./Backend
-            dockerfile: projects-service/Dockerfile
-        ports:
-            - "8082:8080"
-            - "8445:8443" # HTTPS
-            - "50053:50051"
-        environment:
-            - MONGO_DB_URI=mongodb://mongo:27017
-            - PORT=8080
-            - NATS_URL=nats://nats:4222
-            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
-            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
-        networks:
-            - app-network
-        volumes:
-            - ./certificates:/app/certificates
-            - ./logs:/app/logs
-        depends_on:
-            - mongo
-            - jaeger
+  projects-service:
+    build:
+      context: ./Backend
+      dockerfile: projects-service/Dockerfile
+    ports:
+      - "8082:8080"
+      - "8445:8443" # HTTPS
+      - "50053:50051"
+    environment:
+      - MONGO_DB_URI=mongodb://mongo:27017
+      - PORT=8080
+      - NATS_URL=nats://nats:4222
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    networks:
+      - app-network
+    volumes:
+      - ./certificates:/app/certificates
+      - ./logs:/app/logs
+    depends_on:
+      - mongo
+      - jaeger
 
-    tasks-service:
-        build:
-            context: ./Backend
-            dockerfile: tasks-service/Dockerfile
-        ports:
-            - "8083:8080"
-            - "8446:8443" # HTTPS
-            - "50052:50051"
-        environment:
-            - MONGO_DB_URI=mongodb://mongo:27017
-            - PORT=8080
-            - NATS_URL=nats://nats:4222
-            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
-            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
-        networks:
-            - app-network
-        volumes:
-            - ./certificates:/app/certificates
-            - ./Backend/tasks-service/.env:/app/.env
-        depends_on:
-            mongo:
-                condition: service_started
-            jaeger:
-                condition: service_started
-            namenode:
-                condition: service_healthy
-            
+  tasks-service:
+    build:
+      context: ./Backend
+      dockerfile: tasks-service/Dockerfile
+    ports:
+      - "8083:8080"
+      - "8446:8443" # HTTPS
+      - "50052:50051"
+    environment:
+      - MONGO_DB_URI=mongodb://mongo:27017
+      - PORT=8080
+      - NATS_URL=nats://nats:4222
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    networks:
+      - app-network
+    volumes:
+      - ./certificates:/app/certificates
+      - ./Backend/tasks-service/.env:/app/.env
+    depends_on:
+      mongo:
+        condition: service_started
+      jaeger:
+        condition: service_started
+      namenode:
+        condition: service_healthy
 
-    notifications-service:
-        build:
-            context: ./Backend
-            dockerfile: notifications-service/Dockerfile
-        ports:
-            - "8084:8080"
-            - "8447:8443" # HTTPS
-        env_file:
-            - ./Backend/notifications-service/.env
-        networks:
-            - app-network
+  notifications-service:
+    build:
+      context: ./Backend
+      dockerfile: notifications-service/Dockerfile
+    ports:
+      - "8084:8080"
+      - "8447:8443" # HTTPS
+    env_file:
+      - ./Backend/notifications-service/.env
+    networks:
+      - app-network
 
-        volumes:
-            - ./certificates:/app/certificates
+    volumes:
+      - ./certificates:/app/certificates
 
-        environment:
-            - PORT=8080
-            # NoSQL: environment variable holding connection URI for Cassandra database
-            - CASS_DB=cassandra:9042
-            # NoSQL: Extremely important! Cassandra takes a lot of time to start!
-            # If we don't wait for it to fully initialize we will get exceptions and will not be able to connect!
-            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
-            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+    environment:
+      - PORT=8080
+      # NoSQL: environment variable holding connection URI for Cassandra database
+      - CASS_DB=cassandra:9042
+      # NoSQL: Extremely important! Cassandra takes a lot of time to start!
+      # If we don't wait for it to fully initialize we will get exceptions and will not be able to connect!
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+      - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
 
-        depends_on:
-            cassandra:
-                condition: service_healthy
-            
+    depends_on:
+      cassandra:
+        condition: service_healthy
 
-    cassandra:
-        image: cassandra
-        restart: always
-        ports:
-            - "9042:9042"
-        # Docker healtcheck - checks if database is "alive"
-        healthcheck:
-            test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
-            interval: 15s
-            timeout: 5s
-            retries: 30
-        networks:
-            - app-network
+  cassandra:
+    image: cassandra
+    restart: always
+    ports:
+      - "9042:9042"
+    # Docker healtcheck - checks if database is "alive"
+    healthcheck:
+      test: ["CMD-SHELL", "cqlsh -e 'describe cluster'"]
+      interval: 15s
+      timeout: 5s
+      retries: 30
+    networks:
+      - app-network
 
-    jaeger:
-        image: jaegertracing/all-in-one:latest
-        ports:
-            - "16686:16686"  # Jaeger UI
-            - "14268:14268"  # HTTP Collector
-            - "4317:4317"    # gRPC
-            - "4318:4318"
-        networks:
-            - app-network
-        environment:
-            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+  jaeger:
+    image: jaegertracing/all-in-one:latest
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "14268:14268" # HTTP Collector
+      - "4317:4317" # gRPC
+      - "4318:4318"
+    networks:
+      - app-network
+    environment:
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
 
+  api-gateway:
+    build:
+      context: ./Backend/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+      - "8443:8443" # HTTPS
+    environment:
+      - USER_SERVICE=https://users-service:8443
+      - PROJECT_SERVICE=https://projects-service:8443 # HTTPS URL projects-service-a
+      - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
+      - NOTIFICATION_SERVICE=https://notifications-service:8443
+      - PORT=8443
+      - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
 
-    api-gateway:
-        build:
-            context: ./Backend/api-gateway
-            dockerfile: Dockerfile
-        ports:
-            - "8080:8080"
-            - "8443:8443" # HTTPS
-        environment:
-            - USER_SERVICE=https://users-service:8443
-            - PROJECT_SERVICE=https://projects-service:8443 # HTTPS URL projects-service-a
-            - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
-            - NOTIFICATION_SERVICE=https://notifications-service:8443
-            - PORT=8443
-            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+    networks:
+      - app-network
+    volumes:
+      - ./certificates:/app/certificates
+    depends_on:
+      - users-service
+      - projects-service
+      - tasks-service
+      - notifications-service
 
-        networks:
-            - app-network
-        volumes:
-            - ./certificates:/app/certificates
-        depends_on:
-            - users-service
-            - projects-service
-            - tasks-service
-            - notifications-service
+  redis:
+    image: "redis:latest"
+    ports:
+      - "6379:6379"
+    networks:
+      - app-network
+    volumes:
+      - ./Backend/db/redis_store:/data/db
 
-    redis:
-        image: "redis:latest"
-        ports:
-            - "6379:6379"
-        networks:
-            - app-network
-        volumes:
-            - ./Backend/db/redis_store:/data/db
+  consul:
+    image: hashicorp/consul:latest
+    ports:
+      - "8500:8500"
+    command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
+    volumes:
+      - ./Backend/db/consul_store:/consul/data
+    networks:
+      - app-network
 
-    consul:
-        image: hashicorp/consul:latest
-        ports:
-            - "8500:8500"
-        command: "agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0"
-        volumes:
-            - ./Backend/db/consul_store:/consul/data
-        networks:
-            - app-network
+  mongo:
+    image: mongo:latest
+    restart: always
+    ports:
+      - "27017:27017"
+    networks:
+      - app-network
+    volumes:
+      - ./Backend/db/mongo_store:/data/db
 
-    mongo:
-        image: mongo:latest
-        restart: always
-        ports:
-            - "27017:27017"
-        networks:
-            - app-network
-        volumes:
-            - ./Backend/db/mongo_store:/data/db
+  mongo-express:
+    image: mongo-express:latest
+    restart: always
+    ports:
+      - "8088:8081"
+    environment:
+      - ME_CONFIG_MONGODB_URL=mongodb://mongo:27017
+    networks:
+      - app-network
 
-    mongo-express:
-        image: mongo-express:latest
-        restart: always
-        ports:
-            - "8088:8081"
-        environment:
-            - ME_CONFIG_MONGODB_URL=mongodb://mongo:27017
-        networks:
-            - app-network
+  nats:
+    image: nats:latest
+    ports:
+      - "4222:4222"
+      - "6222:6222"
+      - "8222:8222"
+    networks:
+      - app-network
 
-    nats:
-        image: nats:latest
-        ports:
-            - "4222:4222"  
-            - "6222:6222" 
-            - "8222:8222"  
-        networks:
-            - app-network
+  frontend:
+    build:
+      context: ./Frontend
+      dockerfile: Dockerfile
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./Frontend:/app
+      - /app/node_modules
+      - ./certificates:/app/certificates
+    environment:
+      CHOKIDAR_USEPOLLING: "true"
+    env_file:
+      - ./Frontend/.env
+    networks:
+      - app-network
+    depends_on:
+      - users-service
+      - projects-service
+      - tasks-service
+      - notifications-service
 
-    frontend:
-        build:
-            context: ./Frontend
-            dockerfile: Dockerfile
-        ports:
-            - "5173:5173"
-        volumes:
-            - ./Frontend:/app
-            - /app/node_modules
-            - ./certificates:/app/certificates
-        environment:
-            CHOKIDAR_USEPOLLING: "true"
-        env_file:
-            - ./Frontend/.env
-        networks:
-            - app-network
-        depends_on:
-            - users-service
-            - projects-service
-            - tasks-service
-            - notifications-service
+  namenode:
+    image: bde2020/hadoop-namenode:latest
+    hostname: namenode.hadoop
+    ports:
+      - "9000:9000"
+      - "50070:50070"
+    volumes:
+      - ./Backend/db/namenode-vol:/hadoop/dfs/name
+    environment:
+      - CLUSTER_NAME=hadoop
+      - CORE_CONF_fs_defaultFS=hdfs://namenode.hadoop:9000
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "9000"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
 
-    namenode:
-        image: bde2020/hadoop-namenode:latest  
-        hostname: namenode.hadoop
-        ports:
-            - "9000:9000"
-            - "50070:50070"  
-        volumes:
-            - ./Backend/db/namenode-vol:/hadoop/dfs/name
-        environment:
-            - CLUSTER_NAME=hadoop
-            - CORE_CONF_fs_defaultFS=hdfs://namenode.hadoop:9000
-        networks:
-            - app-network
-        healthcheck:
-            test: ["CMD", "nc", "-z", "localhost", "9000"]
-            interval: 5s
-            timeout: 3s
-            retries: 5
+  datanode:
+    image: bde2020/hadoop-datanode:latest
+    hostname: datanode.hadoop
+    ports:
+      - "50075:50075"
+      - "50010:50010"
+      - "8020:8020"
+    volumes:
+      - ./Backend/db/datanode-vol:/hadoop/dfs/data
+    environment:
+      - CLUSTER_NAME=hadoop
+      - NAMENODE_HOST=namenode.hadoop:9000
+      - HADOOP_NAMENODE=hdfs://namenode.hadoop:9000
+      - CORE_CONF_fs_defaultFS=hdfs://namenode.hadoop:9000
+      - HDFS_CONF_dfs_datanode_address=0.0.0.0:8020
+    networks:
+      - app-network
 
-    datanode:
-        image: bde2020/hadoop-datanode:latest  
-        hostname: datanode.hadoop
-        ports:
-            - "50075:50075"  
-            - "50010:50010"
-            - "8020:8020"
-        volumes:
-            - ./Backend/db/datanode-vol:/hadoop/dfs/data
-        environment:
-            - CLUSTER_NAME=hadoop
-            - NAMENODE_HOST=namenode.hadoop:9000
-            - HADOOP_NAMENODE=hdfs://namenode.hadoop:9000
-            - CORE_CONF_fs_defaultFS=hdfs://namenode.hadoop:9000
-            - HDFS_CONF_dfs_datanode_address=0.0.0.0:8020 
-        networks:
-            - app-network
+  sonarqube:
+    image: sonarqube:community
+    ports:
+      - "9001:9000"
+    environment:
+      - SONAR_ES_BOOTSTRAP_CHECKS_DISABLE=true
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_extensions:/opt/sonarqube/extensions
+      - sonarqube_logs:/opt/sonarqube/logs
 
 networks:
-    app-network:
-        driver: bridge
+  app-network:
+    driver: bridge
 
 volumes:
-    cass_store:
-    namenode-vol: 
-    datanode-vol: 
+  cass_store:
+  namenode-vol:
+  datanode-vol:
+  sonarqube_data:
+  sonarqube_extensions:
+  sonarqube_logs:
