@@ -98,8 +98,8 @@ func proxyWithMechanisms(w http.ResponseWriter, r *http.Request, serviceURL stri
 		return
 	}
 
-	_, err := breaker.Execute(func() (interface{}, error) {
-		return nil, callWithRetry(w, r, serviceURL)
+	err := retryWithBreaker(breaker, func() error {
+		return forwardRequest(w, r, serviceURL)
 	})
 
 	if err != nil {
@@ -108,12 +108,24 @@ func proxyWithMechanisms(w http.ResponseWriter, r *http.Request, serviceURL stri
 	}
 }
 
-func callWithRetry(w http.ResponseWriter, r *http.Request, serviceURL string) error {
-	backoffConfig := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)
-	return backoff.Retry(func() error {
-		return forwardRequest(w, r, serviceURL)
-	}, backoffConfig)
+func retryWithBreaker(breaker *gobreaker.CircuitBreaker, fn func() error) error {
+	operation := func() error {
+		_, err := breaker.Execute(func() (interface{}, error) {
+			return nil, fn()
+		})
+		return err
+	}
+
+	expBackoff := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)
+	return backoff.Retry(operation, expBackoff)
 }
+
+// func callWithRetry(w http.ResponseWriter, r *http.Request, serviceURL string) error {
+// 	backoffConfig := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)
+// 	return backoff.Retry(func() error {
+// 		return forwardRequest(w, r, serviceURL)
+// 	}, backoffConfig)
+// }
 
 func forwardRequest(w http.ResponseWriter, r *http.Request, serviceURL string) error {
 	client := &http.Client{
@@ -172,6 +184,9 @@ func initializeCircuitBreakers() {
 			MaxRequests: 5,
 			Interval:    time.Minute,
 			Timeout:     30 * time.Second,
+			OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
+				log.Printf("Circuit breaker '%s' changed state: %s -> %s", name, from.String(), to.String())
+			},
 		})
 	}
 }

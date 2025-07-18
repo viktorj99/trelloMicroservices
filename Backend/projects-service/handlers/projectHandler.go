@@ -85,6 +85,8 @@ func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 	ctx, span := otel.Tracer("projects-service").Start(r.Context(), "CreateProjectHandler")
 	defer span.End()
 
+	time.Sleep(20 * time.Second)
+
 	var project model.Project
 	if err := json.NewDecoder(r.Body).Decode(&project); err != nil {
 		span.RecordError(err)
