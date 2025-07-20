@@ -104,8 +104,40 @@ services:
         depends_on:
             cassandra:
                 condition: service_healthy
-            
 
+    
+    activity-history-service:
+        build:
+            context: ./Backend
+            dockerfile: activity-history-service/Dockerfile
+        ports:
+            - "8085:8080"
+            - "8448:8443" # HTTPS
+        environment:
+            - EVENTSTORE_URI=esdb://eventstore:2113?tls=false
+            - PORT=8080
+        networks:
+            - app-network
+        volumes:
+            - ./certificates:/app/certificates
+            - ./logs:/app/logs
+        depends_on:
+            - eventstore
+
+    
+    eventstore:
+        image: eventstore/eventstore:21.10.0-buster-slim
+        environment:
+        - EVENTSTORE_INSECURE=true
+        - EVENTSTORE_RUN_PROJECTIONS=All
+        - EVENTSTORE_START_STANDARD_PROJECTIONS=true
+        ports:
+        - "2113:2113"  # HTTP (UI/API)
+        - "1113:1113"  # TCP (client connections)
+        networks:
+        - app-network
+
+            
     cassandra:
         image: cassandra
         restart: always
@@ -145,6 +177,7 @@ services:
             - PROJECT_SERVICE=https://projects-service:8443 # HTTPS URL projects-service-a
             - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
             - NOTIFICATION_SERVICE=https://notifications-service:8443
+            - ACTIVITY_HISTORY_SERVICE=https://activity-history-service:8443
             - PORT=8443
             - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
 

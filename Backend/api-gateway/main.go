@@ -26,6 +26,7 @@ var (
 	projectService         string
 	taskService            string
 	notificationService    string
+	activityHistoryService string
 	port                   string
 	serviceCircuitBreakers = make(map[string]*gobreaker.CircuitBreaker)
 )
@@ -34,22 +35,17 @@ func main() {
 	shutdown := initTracer()
 	defer shutdown()
 
-	userService := os.Getenv("USER_SERVICE")
-	projectService := os.Getenv("PROJECT_SERVICE")
-	taskService := os.Getenv("TASK_SERVICE")
-	notificationService := os.Getenv("NOTIFICATION_SERVICE")
-	activityHistoryService := os.Getenv("ACTIVITY_HISTORY_SERVICE")
-	port := os.Getenv("PORT")
-
-	if userService == "" || projectService == "" || taskService == "" || notificationService == "" || activityHistoryService == "" {
-		log.Fatal("One or more service addresses are not set in the environment variables")
-	}
-
+	userService = os.Getenv("USER_SERVICE")
+	projectService = os.Getenv("PROJECT_SERVICE")
+	taskService = os.Getenv("TASK_SERVICE")
+	notificationService = os.Getenv("NOTIFICATION_SERVICE")
+	activityHistoryService = os.Getenv("ACTIVITY_HISTORY_SERVICE")
+	port = os.Getenv("PORT")
 	if port == "" {
 		port = "8443"
 	}
 
-	if userService == "" || projectService == "" || taskService == "" || notificationService == "" {
+	if userService == "" || projectService == "" || taskService == "" || notificationService == "" || activityHistoryService == "" {
 		log.Fatal("Missing service env vars")
 	}
 
@@ -70,10 +66,6 @@ func main() {
 	http.Handle("/api/notifications/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyWithMechanisms(w, r, notificationService)
 	}), "NotificationsEndpoint")))
-
-	http.Handle("/api/activities/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		proxyWithMechanisms(w, r, activityHistoryService)
-	}), "ActivityHistoryEndpoint")))
 
 	http.Handle("/api/activities/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyWithMechanisms(w, r, activityHistoryService)
