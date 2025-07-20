@@ -1,7 +1,7 @@
 import axios from 'axios';
 import { DTOCreateProject } from '../entities/models/CreateProject';
 import { User } from '../entities/models/User';
-import { getToken } from '../utils/authHelpers';
+import { getTokenData, getToken } from '../utils/authHelpers';
 
 const BASE_URL = `${import.meta.env.VITE_BACKEND_URL}/projects`;
 
@@ -32,11 +32,14 @@ export const getProject = async (id: string) => {
 	try {
 		const url = `${BASE_URL}/${id}`;
 		const token = getToken();
+		const tokenData = getTokenData();
+		const userId = tokenData.id;
 		console.log('Requesting project with URL:', url);
 
 		const response = await axios.get(url, {
 			headers: {
 				Authorization: `Bearer ${token}`,
+				user_id: userId
 			},
 		});
 
@@ -58,12 +61,15 @@ export const getProject = async (id: string) => {
 export const addMember = async (newMember: User, projectId: string) => {
 	const token = getToken();
 	const url = `${BASE_URL}/${projectId}/add-member`;
+	const tokenData = getTokenData();
+	const userId = tokenData.id;
 
 	try {
 		await axios.post(url, newMember, {
 			headers: {
 				Authorization: `Bearer ${token}`,
 				'Content-Type': 'application/json',
+				user_id: userId
 			},
 		});
 	} catch (error) {
@@ -82,12 +88,15 @@ export const addMember = async (newMember: User, projectId: string) => {
 export const deleteMember = async (member: User, projectId: string) => {
 	const token = getToken();
 	const url = `${BASE_URL}/${projectId}/remove-member`;
+	const tokenData = getTokenData();
+	const userId = tokenData.id;
 
 	try {
 		await axios.post(url, member, {
 			headers: {
 				Authorization: `Bearer ${token}`,
 				'Content-Type': 'application/json',
+				user_id: userId
 			},
 		});
 	} catch (error) {
@@ -167,11 +176,14 @@ export const getAllProjectsWithManagerId = async (id: string) => {
 export const deleteProject = async (projectId: string) => {
 	const token = getToken();
 	const url = `${BASE_URL}/${projectId}`;
+	const tokenData = getTokenData();
+	const userId = tokenData.id;
 
 	try {
 		const response = await axios.delete(url, {
 			headers: {
 				Authorization: `Bearer ${token}`,
+				user_id: userId
 			},
 		});
 		return response.data;

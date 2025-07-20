@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { Form, Input, Button, message } from 'antd';
 import { loginUser } from '../services/userService';
 import { Link } from 'react-router-dom';
@@ -27,6 +27,7 @@ const LoginPage: React.FC = () => {
 			}
 		} catch (error) {
 			message.error('Login failed. Please try again.');
+			(window as any).grecaptcha.reset();
 		}
 	};
 

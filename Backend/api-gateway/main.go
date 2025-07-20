@@ -8,6 +8,10 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
+
+	"github.com/cenkalti/backoff/v4"
+	"github.com/sony/gobreaker"
 
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 	"go.opentelemetry.io/otel"
@@ -15,6 +19,15 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	"go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.4.0"
+)
+
+var (
+	userService            string
+	projectService         string
+	taskService            string
+	notificationService    string
+	port                   string
+	serviceCircuitBreakers = make(map[string]*gobreaker.CircuitBreaker)
 )
 
 func main() {
@@ -36,29 +49,39 @@ func main() {
 		port = "8443"
 	}
 
+	if userService == "" || projectService == "" || taskService == "" || notificationService == "" {
+		log.Fatal("Missing service env vars")
+	}
+
+	initializeCircuitBreakers()
+
 	http.Handle("/api/users/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		proxyToService(w, r, userService)
+		proxyWithMechanisms(w, r, userService)
 	}), "UsersEndpoint")))
 
 	http.Handle("/api/projects/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		proxyToService(w, r, projectService)
+		proxyWithMechanisms(w, r, projectService)
 	}), "ProjectsEndpoint")))
 
 	http.Handle("/api/tasks/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		proxyToService(w, r, taskService)
+		proxyWithMechanisms(w, r, taskService)
 	}), "TasksEndpoint")))
 
 	http.Handle("/api/notifications/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		proxyToService(w, r, notificationService)
+		proxyWithMechanisms(w, r, notificationService)
 	}), "NotificationsEndpoint")))
 
 	http.Handle("/api/activities/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		proxyToService(w, r, activityHistoryService)
+		proxyWithMechanisms(w, r, activityHistoryService)
 	}), "ActivityHistoryEndpoint")))
 
-	log.Printf("API Gateway is running on HTTPS port %s...", port)
+	http.Handle("/api/activities/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		proxyWithMechanisms(w, r, activityHistoryService)
+	}), "ActivityHistoryEndpoint")))
+
+	log.Printf("API Gateway running on HTTPS port %s...", port)
 	if err := http.ListenAndServeTLS(":"+port, "certificates/cert.crt", "certificates/cert.key", nil); err != nil {
-		log.Fatalf("Failed to start API Gateway HTTPS server: %v", err)
+		log.Fatalf("Failed to start server: %v", err)
 	}
 }
 
@@ -73,40 +96,77 @@ func enableCORS(handler http.Handler) http.Handler {
 			w.WriteHeader(http.StatusOK)
 			return
 		}
-
 		handler.ServeHTTP(w, r)
 	})
 }
 
-func proxyToService(w http.ResponseWriter, r *http.Request, serviceURL string) {
+func proxyWithMechanisms(w http.ResponseWriter, r *http.Request, serviceURL string) {
+	ctx, cancel := context.WithTimeout(r.Context(), 15*time.Second)
+	defer cancel()
+	r = r.WithContext(ctx)
+
+	breaker, ok := serviceCircuitBreakers[serviceURL]
+	if !ok || breaker == nil {
+		log.Printf("Circuit breaker not found for service: %s", serviceURL)
+		fallbackResponse(w)
+		return
+	}
+
+	err := retryWithBreaker(breaker, func() error {
+		return forwardRequest(w, r, serviceURL)
+	})
+
+	if err != nil {
+		log.Printf("Request failed for service %s: %v", serviceURL, err)
+		fallbackResponse(w)
+	}
+}
+
+func retryWithBreaker(breaker *gobreaker.CircuitBreaker, fn func() error) error {
+	operation := func() error {
+		_, err := breaker.Execute(func() (interface{}, error) {
+			return nil, fn()
+		})
+		return err
+	}
+
+	expBackoff := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)
+	return backoff.Retry(operation, expBackoff)
+}
+
+// func callWithRetry(w http.ResponseWriter, r *http.Request, serviceURL string) error {
+// 	backoffConfig := backoff.WithMaxRetries(backoff.NewExponentialBackOff(), 3)
+// 	return backoff.Retry(func() error {
+// 		return forwardRequest(w, r, serviceURL)
+// 	}, backoffConfig)
+// }
+
+func forwardRequest(w http.ResponseWriter, r *http.Request, serviceURL string) error {
 	client := &http.Client{
+		Timeout: time.Second * 10,
 		Transport: otelhttp.NewTransport(&http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		}),
 	}
 
+	newPath := strings.TrimPrefix(r.URL.Path, "/api")
+	newPath = strings.TrimSuffix(newPath, "/")
 	if !strings.HasPrefix(serviceURL, "http") {
 		serviceURL = "https://" + serviceURL
 	}
-	newPath := strings.TrimPrefix(r.URL.Path, "/api")
-	newPath = strings.TrimSuffix(newPath, "/")
 	fullURL := serviceURL + newPath
 
 	log.Printf("Forwarding request to: %s", fullURL)
 
 	req, err := http.NewRequestWithContext(r.Context(), r.Method, fullURL, r.Body)
 	if err != nil {
-		log.Printf("Error creating request: %v", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
+		return err
 	}
 	req.Header = r.Header
 
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Error forwarding request to %s: %v", fullURL, err)
-		http.Error(w, "Failed to forward request: "+err.Error(), http.StatusBadGateway)
-		return
+		return err
 	}
 	defer resp.Body.Close()
 
@@ -115,11 +175,33 @@ func proxyToService(w http.ResponseWriter, r *http.Request, serviceURL string) {
 			w.Header().Add(key, value)
 		}
 	}
-
 	w.WriteHeader(resp.StatusCode)
 	_, err = io.Copy(w, resp.Body)
-	if err != nil {
-		log.Printf("Error copying response body: %v", err)
+	return err
+}
+
+func fallbackResponse(w http.ResponseWriter) {
+	w.WriteHeader(http.StatusServiceUnavailable)
+	w.Write([]byte("Service temporarily unavailable. Please try again later."))
+}
+
+func initializeCircuitBreakers() {
+	serviceURLs := []string{
+		userService,
+		projectService,
+		taskService,
+		notificationService,
+	}
+	for _, serviceURL := range serviceURLs {
+		serviceCircuitBreakers[serviceURL] = gobreaker.NewCircuitBreaker(gobreaker.Settings{
+			Name:        serviceURL,
+			MaxRequests: 5,
+			Interval:    time.Minute,
+			Timeout:     30 * time.Second,
+			OnStateChange: func(name string, from gobreaker.State, to gobreaker.State) {
+				log.Printf("Circuit breaker '%s' changed state: %s -> %s", name, from.String(), to.String())
+			},
+		})
 	}
 }
 
