@@ -4,15 +4,27 @@ package userservice;
 
 option go_package = "pb/userpb";
 
+// Service definition
 service UserService {
     rpc GetAllUsers (GetAllUsersRequest) returns (GetAllUsersResponse);
-  }
-  
-  message GetAllUsersRequest {}
-  
-  message GetAllUsersResponse {
+    rpc CheckUserExistsByID (CheckUserExistsByIDRequest) returns (CheckUserExistsByIDResponse); // New function
+}
+
+// Request and response for GetAllUsers
+message GetAllUsersRequest {}
+
+message GetAllUsersResponse {
     repeated User users = 1;
-  }
+}
+
+// Request and response for CheckUserExistsByID
+message CheckUserExistsByIDRequest {
+    string user_id = 1; // User ID to check
+}
+
+message CheckUserExistsByIDResponse {
+    bool exists = 1; // Whether the user exists or not
+}
 
 // User message representing a user object
 message User {

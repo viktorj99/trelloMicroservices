@@ -1,36 +1,42 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
 import { Form, Input, Button, Select, notification } from 'antd';
 import { Role } from '../entities/models/Role';
 import { RegistrationUser } from '../entities/models/RegistrationUser';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { postData } from '../services/userService';
-import DOMPurify from 'dompurify'; // Import DOMPurify for sanitization
+import DOMPurify from 'dompurify';
+import ReCAPTCHA from 'react-google-recaptcha';
+
+const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)[A-Za-z\d]{8,}$/;
 
 const RegistrationPage: React.FC = () => {
-    const [form] = Form.useForm<RegistrationUser>();
-    const queryClient = useQueryClient();
-
-    // Mutation for backend registration
-    const mutation = useMutation({
-        mutationFn: postData,
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ['users'] });
-            notification.success({
-                message: 'Success',
-                description: 'Registration successful, Check your Email.',
-            });
-            form.resetFields();
-            setTimeout(() => {
-                window.location.href = '/verification';
-            }, 1000);
-        },
-        onError: (error) => {
-            notification.error({
-                message: 'Error',
-                description: ` ${(error as Error).message}`,
-            });
-        },
-    });
+	const [form] = Form.useForm<RegistrationUser>();
+	const queryClient = useQueryClient();
+	const [captchaToken, setCaptchaToken] = useState<string | null>(null);
+    const [passwordStrength, setPasswordStrength] = useState<string | null>(null);
+    const [strengthColor, setStrengthColor] = useState<string>('');
+	
+	const mutation = useMutation({
+		mutationFn: (user: RegistrationUser) => postData(user, captchaToken),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: ['users'] });
+			notification.success({
+				message: 'Success',
+				description: 'Registration successful, Check your Email.',
+			});
+			form.resetFields();
+			setTimeout(() => {
+				window.location.href = '/verification';
+			}, 1000);
+		},
+		onError: (error) => {
+			notification.error({
+				message: 'Error',
+				description: ` ${(error as Error).message}`,
+			});
+            (window as any).grecaptcha.reset();
+		},
+	});
 
     // Form submission with sanitization
     const onFinish = (values: RegistrationUser) => {
@@ -43,6 +49,32 @@ const RegistrationPage: React.FC = () => {
         };
         mutation.mutate(sanitizedValues);
     };
+
+	const onCaptchaChange = (token: string | null) => {
+		setCaptchaToken(token);
+	};
+
+    const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const value = e.target.value;
+        if (passwordRegex.test(value)) {
+            if(value.length >= 24){
+                setPasswordStrength('Damn...');
+                setStrengthColor('purple');
+            } else if (value.length >= 16) {
+                setPasswordStrength('Very Strong!');
+                setStrengthColor('blue');
+            } else if (value.length >= 10) {
+                setPasswordStrength('Strong');
+                setStrengthColor('green');
+            } else {
+                setPasswordStrength('Good Enough...');
+                setStrengthColor('orange');
+            }
+          } else {
+                setPasswordStrength('Password must be at least 8 characters, include 1 uppercase, 1 lowercase letter, and 1 digit.');
+                setStrengthColor('red');
+          }
+      };
 
     return (
         <div style={{ maxWidth: 400, margin: '0 auto', padding: '2rem' }}>
@@ -108,12 +140,17 @@ const RegistrationPage: React.FC = () => {
                     label='Password'
                     rules={[
                         { required: true, message: 'Please input your password!' },
-                        { min: 6, message: 'Password must be at least 6 characters!' },
-                    ]}
+                      ]}
                     hasFeedback
                 >
-                    <Input.Password />
+                    <Input.Password onChange={handlePasswordChange} />
                 </Form.Item>
+                
+                {passwordStrength && (
+                    <div style={{ color: strengthColor, marginBottom: '16px' }}>
+                        {passwordStrength}
+                    </div>
+                )}
 
                 <Form.Item
                     name='confirm'
@@ -134,7 +171,6 @@ const RegistrationPage: React.FC = () => {
                 >
                     <Input.Password />
                 </Form.Item>
-
                 <Form.Item
                     name='role'
                     label='Role'
@@ -145,15 +181,21 @@ const RegistrationPage: React.FC = () => {
                         <Select.Option value={Role.Member}>Member</Select.Option>
                     </Select>
                 </Form.Item>
+				<div style={{ textAlign: 'center', marginBottom: '10px' }}>
+					<ReCAPTCHA
+						sitekey={import.meta.env.VITE_RECAPTCHA_SITE_KEY}
+						onChange={onCaptchaChange}
+					/>
+				</div>
 
-                <Form.Item>
-                    <Button type='primary' htmlType='submit'>
-                        Register
-                    </Button>
-                </Form.Item>
-            </Form>
-        </div>
-    );
+				<Form.Item>
+					<Button type='primary' htmlType='submit'>
+						Register
+					</Button>
+				</Form.Item>
+			</Form>
+		</div>
+	);
 };
 
 export default RegistrationPage;

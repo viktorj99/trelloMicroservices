@@ -18,6 +18,7 @@ import ChangePasswordPage from './page/ChangePassword';
 import SendMagicLink from './page/SendMagicLink';
 import MagicLogin from './page/MagicLogin';
 import SingleTask from './page/SingleTask';
+import Profile from './page/Profile';
 
 export const router = createBrowserRouter([
 	{
@@ -35,6 +36,10 @@ export const router = createBrowserRouter([
 			{
 				path: '/registration',
 				element: <Registration />,
+			},
+			{
+				path: '/profile',
+				element: <Profile />,
 			},
 			{
 				path: '/project/:id',

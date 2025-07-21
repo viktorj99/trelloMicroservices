@@ -1,45 +1,83 @@
 package services
 
 import (
+	"context"
 	"time"
 
 	"notifications-service/model"
 	"notifications-service/repositories"
 
 	"github.com/gocql/gocql"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type NotificationService struct {
 	repo *repositories.NotificationRepository
 }
 
-// NewNotificationService initializes the service layer
 func NewNotificationService(repo *repositories.NotificationRepository) *NotificationService {
 	return &NotificationService{repo: repo}
 }
 
-// CreateNotification creates a new notification
 func (service *NotificationService) CreateNotification(userID string, notificationID gocql.UUID, message string) error {
-	now := time.Now()
+	_, span := otel.Tracer("notifications-service/services").Start(context.Background(), "CreateNotification")
+	defer span.End()
 
+	span.SetAttributes(
+		attribute.String("userID", userID),
+		attribute.String("notificationID", notificationID.String()),
+		attribute.String("message", message),
+	)
+
+	now := time.Now()
 	notification := model.Notification{
 		UserID:         userID,
-		NotificationID: notificationID,        // Generate unique UUID
-		YearMonth:      now.Format("2006-01"), // Format time as "YYYY-MM"
+		NotificationID: notificationID,
+		YearMonth:      now.Format("2006-01"),
 		CreatedAt:      now,
 		Message:        message,
 		IsRead:         false,
 	}
 
-	return service.repo.SaveNotification(notification)
+	err := service.repo.SaveNotification(notification)
+	if err != nil {
+		span.RecordError(err)
+		return err
+	}
+
+	return nil
 }
 
-// GetNotifications gets all notifications for a user in a specific month
 func (service *NotificationService) GetNotifications(userID string, yearMonth string) ([]model.Notification, error) {
-	return service.repo.GetNotificationsByMonth(userID, yearMonth)
+	_, span := otel.Tracer("notifications-service/services").Start(context.Background(), "GetNotificationsService")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("userID", userID),
+		attribute.String("yearMonth", yearMonth),
+	)
+
+	notifications, err := service.repo.GetNotificationsByMonth(userID, yearMonth)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+
+	return notifications, nil
 }
 
-// GetAllNotifications retrieves all notifications for a user
 func (service *NotificationService) GetAllNotifications(userID string) ([]model.Notification, error) {
-	return service.repo.GetAllNotifications(userID)
+	_, span := otel.Tracer("notifications-service/services").Start(context.Background(), "GetAllNotificationsService")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("userID", userID))
+
+	notifications, err := service.repo.GetAllNotifications(userID)
+	if err != nil {
+		span.RecordError(err)
+		return nil, err
+	}
+
+	return notifications, nil
 }

@@ -1,22 +1,34 @@
 package repositories
 
 import (
+	"context"
 	"notifications-service/model"
 
 	"github.com/gocql/gocql"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
 )
 
 type NotificationRepository struct {
 	session *gocql.Session
 }
 
-// NewNotificationRepository initializes the repository
 func NewNotificationRepository(session *gocql.Session) *NotificationRepository {
 	return &NotificationRepository{session: session}
 }
 
-// SaveNotification saves a notification to Cassandra
 func (repo *NotificationRepository) SaveNotification(notification model.Notification) error {
+	tracer := otel.Tracer("notifications-service/repositories")
+	_, span := tracer.Start(context.Background(), "SaveNotificationRepo")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("userID", notification.UserID),
+		attribute.String("notificationID", notification.NotificationID.String()),
+		attribute.String("yearMonth", notification.YearMonth),
+		attribute.String("message", notification.Message),
+	)
+
 	query := `INSERT INTO trello.notifications_by_month (user_id, notification_id, year_month, created_at, message, is_read)
 		VALUES (?, ?, ?, ?, ?, ?)`
 
@@ -27,14 +39,23 @@ func (repo *NotificationRepository) SaveNotification(notification model.Notifica
 		notification.CreatedAt,
 		notification.Message,
 		notification.IsRead).Exec(); err != nil {
+		span.RecordError(err)
 		return err
 	}
 
 	return nil
 }
 
-// GetNotificationsByMonth retrieves all notifications for a user in a given month
 func (repo *NotificationRepository) GetNotificationsByMonth(userID string, yearMonth string) ([]model.Notification, error) {
+	tracer := otel.Tracer("notifications-service/repositories")
+	_, span := tracer.Start(context.Background(), "GetNotificationsByMonthRepo")
+	defer span.End()
+
+	span.SetAttributes(
+		attribute.String("userID", userID),
+		attribute.String("yearMonth", yearMonth),
+	)
+
 	var notifications []model.Notification
 	query := `SELECT user_id, notification_id, year_month, created_at, message, is_read
 		FROM trello.notifications_by_month WHERE user_id = ? AND year_month = ?`
@@ -46,18 +67,20 @@ func (repo *NotificationRepository) GetNotificationsByMonth(userID string, yearM
 	}
 
 	if err := iter.Close(); err != nil {
+		span.RecordError(err)
 		return nil, err
-	}
-
-	if len(notifications) == 0 {
-		return []model.Notification{}, nil
 	}
 
 	return notifications, nil
 }
 
-// GetAllNotifications retrieves all notifications for a given user
 func (repo *NotificationRepository) GetAllNotifications(userID string) ([]model.Notification, error) {
+	tracer := otel.Tracer("notifications-service/repositories")
+	_, span := tracer.Start(context.Background(), "GetAllNotificationsRepo")
+	defer span.End()
+
+	span.SetAttributes(attribute.String("userID", userID))
+
 	var notifications []model.Notification
 	query := `SELECT user_id, notification_id, year_month, created_at, message, is_read
 		FROM trello.notifications_by_month WHERE user_id = ?`
@@ -69,11 +92,8 @@ func (repo *NotificationRepository) GetAllNotifications(userID string) ([]model.
 	}
 
 	if err := iter.Close(); err != nil {
+		span.RecordError(err)
 		return nil, err
-	}
-
-	if len(notifications) == 0 {
-		return []model.Notification{}, nil
 	}
 
 	return notifications, nil

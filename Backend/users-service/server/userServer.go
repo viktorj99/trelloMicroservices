@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	userpb "pb/userpb"
+	"users-service/repositories"
 	"users-service/services"
 )
 
@@ -15,12 +16,11 @@ func NewUserServer() *UserServer {
 }
 
 func (s *UserServer) GetAllUsers(ctx context.Context, req *userpb.GetAllUsersRequest) (*userpb.GetAllUsersResponse, error) {
-	usersFromDB, err := services.GetAllUsers()
+	usersFromDB, err := services.GetAllUsers(ctx)
 	if err != nil {
 		return nil, err
 	}
 
-	// Mapiranje korisnika iz baze na gRPC strukturu
 	var users []*userpb.User
 	for _, user := range usersFromDB {
 		users = append(users, &userpb.User{
@@ -34,4 +34,15 @@ func (s *UserServer) GetAllUsers(ctx context.Context, req *userpb.GetAllUsersReq
 	}
 
 	return &userpb.GetAllUsersResponse{Users: users}, nil
+}
+
+func (s *UserServer) CheckUserExistsByID(ctx context.Context, req *userpb.CheckUserExistsByIDRequest) (*userpb.CheckUserExistsByIDResponse, error) {
+	userID := req.GetUserId()
+
+	exists, err := repositories.UserExistsByID(userID)
+	if err != nil {
+		return nil, err
+	}
+
+	return &userpb.CheckUserExistsByIDResponse{Exists: exists}, nil
 }

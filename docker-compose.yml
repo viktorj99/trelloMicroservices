@@ -5,15 +5,17 @@ services:
             dockerfile: users-service/Dockerfile
         ports:
             - "8081:8080"
-            - "8444:8443" # HTTPS
+            - "8444:8443"
             - "50051:50051"
         environment:
-            - MONGO_DB_URI=mongodb://mongo:27017
-            - PORT=8080
-            - REDIS_HOST=redis
-            - REDIS_PORT=6379
-            - CONSUL_DB=consul
-            - CONSUL_DB_PORT=8500
+            MONGO_DB_URI: mongodb://mongo:27017
+            PORT: 8080
+            REDIS_HOST: redis
+            REDIS_PORT: 6379
+            CONSUL_DB: consul
+            CONSUL_DB_PORT: 8500
+            JAEGER_ENDPOINT: http://jaeger:14268/api/traces
+            OTEL_EXPORTER_OTLP_ENDPOINT: http://jaeger:4318
         networks:
             - app-network
         volumes:
@@ -22,6 +24,7 @@ services:
         depends_on:
             - mongo
             - consul
+            - jaeger
 
     projects-service:
         build:
@@ -30,15 +33,21 @@ services:
         ports:
             - "8082:8080"
             - "8445:8443" # HTTPS
+            - "50053:50051"
         environment:
             - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
+            - NATS_URL=nats://nats:4222
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
         networks:
             - app-network
         volumes:
             - ./certificates:/app/certificates
+            - ./logs:/app/logs
         depends_on:
             - mongo
+            - jaeger
 
     tasks-service:
         build:
@@ -47,17 +56,27 @@ services:
         ports:
             - "8083:8080"
             - "8446:8443" # HTTPS
+            - "50052:50051"
         environment:
             - MONGO_DB_URI=mongodb://mongo:27017
             - PORT=8080
             - WORKFLOW_SERVICE_URL=https://workflow-service:8443
+            - NATS_URL=nats://nats:4222
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
         networks:
             - app-network
         volumes:
             - ./certificates:/app/certificates
             - ./Backend/tasks-service/.env:/app/.env
         depends_on:
-            - mongo
+            mongo:
+                condition: service_started
+            jaeger:
+                condition: service_started
+            namenode:
+                condition: service_healthy
+            
 
     notifications-service:
         build:
@@ -80,11 +99,46 @@ services:
             - CASS_DB=cassandra:9042
             # NoSQL: Extremely important! Cassandra takes a lot of time to start!
             # If we don't wait for it to fully initialize we will get exceptions and will not be able to connect!
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+            - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
 
         depends_on:
             cassandra:
                 condition: service_healthy
 
+    
+    activity-history-service:
+        build:
+            context: ./Backend
+            dockerfile: activity-history-service/Dockerfile
+        ports:
+            - "8085:8080"
+            - "8448:8443" # HTTPS
+        environment:
+            - EVENTSTORE_URI=esdb://eventstore:2113?tls=false
+            - PORT=8080
+        networks:
+            - app-network
+        volumes:
+            - ./certificates:/app/certificates
+            - ./logs:/app/logs
+        depends_on:
+            - eventstore
+
+    
+    eventstore:
+        image: eventstore/eventstore:21.10.0-buster-slim
+        environment:
+        - EVENTSTORE_INSECURE=true
+        - EVENTSTORE_RUN_PROJECTIONS=All
+        - EVENTSTORE_START_STANDARD_PROJECTIONS=true
+        ports:
+        - "2113:2113"  # HTTP (UI/API)
+        - "1113:1113"  # TCP (client connections)
+        networks:
+        - app-network
+
+            
     cassandra:
         image: cassandra
         restart: always
@@ -99,6 +153,19 @@ services:
         networks:
             - app-network
 
+    jaeger:
+        image: jaegertracing/all-in-one:latest
+        ports:
+            - "16686:16686"  # Jaeger UI
+            - "14268:14268"  # HTTP Collector
+            - "4317:4317"    # gRPC
+            - "4318:4318"
+        networks:
+            - app-network
+        environment:
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
+
+
     api-gateway:
         build:
             context: ./Backend/api-gateway
@@ -112,7 +179,9 @@ services:
             - TASK_SERVICE=https://tasks-service:8443 # HTTPS URL tasks-service-a
             - NOTIFICATION_SERVICE=https://notifications-service:8443
             - WORKFLOW_SERVICE=https://workflow-service:8443
+            - ACTIVITY_HISTORY_SERVICE=https://activity-history-service:8443
             - PORT=8443
+            - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
 
         networks:
             - app-network
@@ -198,6 +267,15 @@ services:
         volumes:
             - ./certificates:/app/certificates
 
+    nats:
+        image: nats:latest
+        ports:
+            - "4222:4222"  
+            - "6222:6222" 
+            - "8222:8222"  
+        networks:
+            - app-network
+
     frontend:
         build:
             context: ./Frontend
@@ -220,9 +298,48 @@ services:
             - tasks-service
             - notifications-service
 
+    namenode:
+        image: bde2020/hadoop-namenode:latest  
+        hostname: namenode.hadoop
+        ports:
+            - "9000:9000"
+            - "50070:50070"  
+        volumes:
+            - ./Backend/db/namenode-vol:/hadoop/dfs/name
+        environment:
+            - CLUSTER_NAME=hadoop
+            - CORE_CONF_fs_defaultFS=hdfs://namenode.hadoop:9000
+        networks:
+            - app-network
+        healthcheck:
+            test: ["CMD", "nc", "-z", "localhost", "9000"]
+            interval: 5s
+            timeout: 3s
+            retries: 5
+
+    datanode:
+        image: bde2020/hadoop-datanode:latest  
+        hostname: datanode.hadoop
+        ports:
+            - "50075:50075"  
+            - "50010:50010"
+            - "8020:8020"
+        volumes:
+            - ./Backend/db/datanode-vol:/hadoop/dfs/data
+        environment:
+            - CLUSTER_NAME=hadoop
+            - NAMENODE_HOST=namenode.hadoop:9000
+            - HADOOP_NAMENODE=hdfs://namenode.hadoop:9000
+            - CORE_CONF_fs_defaultFS=hdfs://namenode.hadoop:9000
+            - HDFS_CONF_dfs_datanode_address=0.0.0.0:8020 
+        networks:
+            - app-network
+
 networks:
     app-network:
         driver: bridge
 
 volumes:
     cass_store:
+    namenode-vol: 
+    datanode-vol: 
