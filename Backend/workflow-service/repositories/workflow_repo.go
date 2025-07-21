@@ -65,7 +65,6 @@ func (repo *WorkflowRepository) TaskExists(taskID string) (bool, error) {
 	return false, nil
 }
 
-
 func (repo *WorkflowRepository) CreateDependency(taskID, dependentID string) error {
 	session := repo.driver.NewSession(neo4j.SessionConfig{})
 	defer session.Close()
@@ -91,7 +90,7 @@ func (repo *WorkflowRepository) CreateDependency(taskID, dependentID string) err
 
 	_, err = session.Run(
 		"MATCH (t1:Task {id: $taskID}), (t2:Task {id: $dependentID}) "+
-			"CREATE (t1)-[:DEPENDS_ON]->(t2)",
+			"MERGE (t1)-[:DEPENDS_ON]->(t2)",
 		map[string]interface{}{
 			"taskID":      taskID,
 			"dependentID": dependentID,
@@ -99,7 +98,6 @@ func (repo *WorkflowRepository) CreateDependency(taskID, dependentID string) err
 	)
 	return err
 }
-
 
 func (repo *WorkflowRepository) GetTasks() ([]map[string]interface{}, error) {
 	session := repo.driver.NewSession(neo4j.SessionConfig{})
@@ -218,8 +216,8 @@ func (repo *WorkflowRepository) GetAllDependencies() ([]map[string]interface{}, 
 		task2 := record.Values[1].(neo4j.Node).Props
 
 		dependency := map[string]interface{}{
-			"task":         task1,
-			"dependentOn":  task2,
+			"task":        task1,
+			"dependentOn": task2,
 		}
 		dependencies = append(dependencies, dependency)
 	}
@@ -228,111 +226,166 @@ func (repo *WorkflowRepository) GetAllDependencies() ([]map[string]interface{}, 
 }
 
 func (repo *WorkflowRepository) GetTask(taskID string) (models.Task, error) {
-    fmt.Println("🔎 Pozivam GetTask za taskID:", taskID)
+	fmt.Println("🔎 Pozivam GetTask za taskID:", taskID)
 
-    session := repo.driver.NewSession(neo4j.SessionConfig{})
-    defer session.Close()
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
+	defer session.Close()
 
-    query := `
+	query := `
         MATCH (t:Task {id: $id})
         RETURN t
     `
 
-    result, err := session.Run(query, map[string]interface{}{
-        "id": taskID,
-    })
-    if err != nil {
-        fmt.Println("❌ GREŠKA: Neo4j upit nije uspeo za taskID:", taskID, "Error:", err)
-        return models.Task{}, err
-    }
+	result, err := session.Run(query, map[string]interface{}{
+		"id": taskID,
+	})
+	if err != nil {
+		fmt.Println("❌ GREŠKA: Neo4j upit nije uspeo za taskID:", taskID, "Error:", err)
+		return models.Task{}, err
+	}
 
-    if !result.Next() {
-        fmt.Println("⚠️ Task sa ID", taskID, "nije pronađen u bazi!")
-        return models.Task{}, fmt.Errorf("task not found")
-    }
+	if !result.Next() {
+		fmt.Println("⚠️ Task sa ID", taskID, "nije pronađen u bazi!")
+		return models.Task{}, fmt.Errorf("task not found")
+	}
 
-    record := result.Record()
-    taskNode, ok := record.Values[0].(neo4j.Node)
-    if !ok {
-        fmt.Println("❌ GREŠKA: Neo4j nije vratio validan čvor za taskID:", taskID)
-        return models.Task{}, fmt.Errorf("invalid task node")
-    }
+	record := result.Record()
+	taskNode, ok := record.Values[0].(neo4j.Node)
+	if !ok {
+		fmt.Println("❌ GREŠKA: Neo4j nije vratio validan čvor za taskID:", taskID)
+		return models.Task{}, fmt.Errorf("invalid task node")
+	}
 
-    taskProps := taskNode.Props
-    fmt.Println("✅ Task pronađen u bazi:", taskProps)
+	taskProps := taskNode.Props
+	fmt.Println("✅ Task pronađen u bazi:", taskProps)
 
-    task := models.Task{}
+	task := models.Task{}
 
-    if id, ok := taskProps["id"].(string); ok {
-        task.ID = id
-    }
+	if id, ok := taskProps["id"].(string); ok {
+		task.ID = id
+	}
 
-    if statusStr, ok := taskProps["status"].(string); ok {
+	if statusStr, ok := taskProps["status"].(string); ok {
 		task.Status = models.Status(statusStr)
 	}
 
-    if title, ok := taskProps["title"].(string); ok {
-        task.Title = title
-    }
+	if title, ok := taskProps["title"].(string); ok {
+		task.Title = title
+	}
 
-    if description, ok := taskProps["description"].(string); ok {
-        task.Description = description
-    }
+	if description, ok := taskProps["description"].(string); ok {
+		task.Description = description
+	}
 
-    if project, ok := taskProps["project"].(string); ok {
-        task.Project = project
-    }
+	if project, ok := taskProps["project"].(string); ok {
+		task.Project = project
+	}
 
-    if member, ok := taskProps["member"].(string); ok {
-        task.Member = member
-    }
+	if member, ok := taskProps["member"].(string); ok {
+		task.Member = member
+	}
 
-    if isBlocked, ok := taskProps["isBlocked"].(bool); ok {
-        task.IsBlocked = isBlocked
-    }
+	if isBlocked, ok := taskProps["isBlocked"].(bool); ok {
+		task.IsBlocked = isBlocked
+	}
 
-    fmt.Println("✅ Finalni Task objekat:", task)
+	fmt.Println("✅ Finalni Task objekat:", task)
 
-    return task, nil
+	return task, nil
 }
-
-
 
 func (repo *WorkflowRepository) UpdateTask(task models.Task) error {
 	fmt.Println("Dosao u repooo", task.Status)
-    if task.ID == "" {
-        return fmt.Errorf("task ID cannot be empty")
-    }
-    if task.Status == "" {
-        return fmt.Errorf("status cannot be empty")
-    }
+	if task.ID == "" {
+		return fmt.Errorf("task ID cannot be empty")
+	}
+	if task.Status == "" {
+		return fmt.Errorf("status cannot be empty")
+	}
 
-    session := repo.driver.NewSession(neo4j.SessionConfig{})
-    defer session.Close()
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
+	defer session.Close()
 
-    query := `
+	query := `
         MATCH (t:Task {id: $id})
         SET t.status = $status
     `
 
-    result, err := session.Run(query, map[string]interface{}{
-        "id": task.ID,
-        "status": task.Status,
-    })
-    if err != nil {
-        return err
-    }
+	result, err := session.Run(query, map[string]interface{}{
+		"id":     task.ID,
+		"status": task.Status,
+	})
+	if err != nil {
+		return err
+	}
 
-    summary, err := result.Consume()
-    if err != nil {
-        return err
-    }
+	summary, err := result.Consume()
+	if err != nil {
+		return err
+	}
 
-    if summary.Counters().PropertiesSet() == 0 {
-        return fmt.Errorf("no task updated, task with ID %s not found", task.ID)
-    }
+	if summary.Counters().PropertiesSet() == 0 {
+		return fmt.Errorf("no task updated, task with ID %s not found", task.ID)
+	}
 
-    return nil
+	return nil
 }
 
+//Functions for CQRS
 
+func (repo *WorkflowRepository) IsTaskBlocked(taskID string) (bool, error) {
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
+	defer session.Close()
+
+	query := `
+        MATCH (t:Task {id:$id})
+        OPTIONAL MATCH (t)-[:DEPENDS_ON*1..]->(d:Task)
+        RETURN ANY(s IN COLLECT(d.status) WHERE s <> 'FINISHED') AS blocked
+    `
+
+	result, err := session.Run(query, map[string]interface{}{"id": taskID})
+	if err != nil {
+		return false, err
+	}
+
+	if result.Next() {
+		return result.Record().Values[0].(bool), nil
+	}
+
+	return false, nil
+}
+
+func (repo *WorkflowRepository) SetTaskBlocked(taskID string, blocked bool) error {
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
+	defer session.Close()
+
+	_, err := session.Run(`
+        MATCH (t:Task {id:$id}) SET t.blocked = $blocked
+    `, map[string]interface{}{"id": taskID, "blocked": blocked})
+
+	return err
+}
+
+func (repo *WorkflowRepository) GetTaskDependents(taskID string) ([]string, error) {
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
+	defer session.Close()
+
+	query := `
+        MATCH (t:Task {id:$id})<-[:DEPENDS_ON*1..]-(d:Task)
+        RETURN DISTINCT d.id AS id
+    `
+
+	result, err := session.Run(query, map[string]interface{}{"id": taskID})
+	if err != nil {
+		return nil, err
+	}
+
+	var ids []string
+	for result.Next() {
+		if id, ok := result.Record().Values[0].(string); ok {
+			ids = append(ids, id)
+		}
+	}
+
+	return ids, nil
+}

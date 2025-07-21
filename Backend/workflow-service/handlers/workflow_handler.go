@@ -25,13 +25,11 @@ func (h *WorkflowHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Validacija
 	if task.Title == "" || task.Project == "" {
 		http.Error(w, "Title and Project are required", http.StatusBadRequest)
 		return
 	}
 
-	// Postavi default status ako nije specificiran
 	if task.Status == "" {
 		task.Status = models.Pending
 	}
@@ -55,7 +53,6 @@ func (h *WorkflowHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Task created successfully"})
 }
-
 
 func (h *WorkflowHandler) CreateDependency(w http.ResponseWriter, r *http.Request) {
 	var req models.DependencyRequest
@@ -89,7 +86,6 @@ func (h *WorkflowHandler) GetTasksWithDependencies(w http.ResponseWriter, r *htt
 	vars := mux.Vars(r)
 	projectID := vars["id"]
 
-
 	if projectID == "" {
 		http.Error(w, "Project ID is required", http.StatusBadRequest)
 		return
@@ -104,8 +100,6 @@ func (h *WorkflowHandler) GetTasksWithDependencies(w http.ResponseWriter, r *htt
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(tasks)
 }
-
-
 
 func (h *WorkflowHandler) GetAllDependencies(w http.ResponseWriter, r *http.Request) {
 	dependencies, err := h.service.GetAllDependencies()
@@ -158,7 +152,6 @@ func (h *WorkflowHandler) UpdateTaskStatus(w http.ResponseWriter, r *http.Reques
 	task.Status = updateStatus
 	fmt.Println("Promenio status", task.Status)
 
-
 	err = h.service.UpdateTask(task)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -170,4 +163,3 @@ func (h *WorkflowHandler) UpdateTaskStatus(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusOK)
 	json.NewEncoder(w).Encode(map[string]string{"message": "Task status updated successfully"})
 }
-
