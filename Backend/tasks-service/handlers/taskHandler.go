@@ -131,7 +131,7 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 	} else {
 		fullURL := workflowServiceURL + "/workflow/tasks"
 		h.logger.Printf("Making POST request to: %s", fullURL)
-		
+
 		workflowReq, err := http.NewRequest("POST", fullURL, bytes.NewBuffer(workflowJSON))
 		if err != nil {
 			h.logger.Printf("Warning: Failed to create workflow request: %v", err)
@@ -142,7 +142,7 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 					TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 				},
 			}
-			
+
 			h.logger.Printf("Sending request to workflow service...")
 			resp, err := client.Do(workflowReq)
 			if err != nil {
@@ -150,10 +150,10 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 			} else {
 				defer resp.Body.Close()
 				h.logger.Printf("Workflow service responded with status: %d", resp.StatusCode)
-				
+
 				body, _ := io.ReadAll(resp.Body)
 				h.logger.Printf("Response body: %s", string(body))
-				
+
 				if resp.StatusCode != http.StatusCreated {
 					h.logger.Printf("Warning: Workflow service responded with unexpected status: %d", resp.StatusCode)
 				}
@@ -270,7 +270,7 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 	memberID := vars["memberID"]
 	projectID := vars["projectID"]
 
-	ctx := r.Context()
+	ctx = r.Context()
 
 	tasks, err := h.service.GetTasksWithDependencies(ctx, projectID)
 	if err != nil {
@@ -288,7 +288,7 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 		for _, dependency := range task.Dependencies {
 			if dependency.ID == objectID && task.Status != model.Finished {
 				fmt.Println("prviiiiii " + model.Finished)
-				http.Error(w, "Task is blocked by task with title: " + task.Title, http.StatusBadRequest)
+				http.Error(w, "Task is blocked by task with title: "+task.Title, http.StatusBadRequest)
 				return
 			}
 		}
@@ -446,4 +446,3 @@ func (h *TaskHandler) GetTasksWithDependencies(w http.ResponseWriter, r *http.Re
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tasks)
 }
-

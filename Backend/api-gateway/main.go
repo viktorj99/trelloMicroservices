@@ -61,7 +61,7 @@ func main() {
 		proxyWithMechanisms(w, r, projectService)
 	}), "ProjectsEndpoint")))
 
-	http.Handle("/api/workflows/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	http.Handle("/api/workflow/", enableCORS(otelhttp.NewHandler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		proxyWithMechanisms(w, r, workflowService)
 	}), "WorkflowsEndpoint")))
 
@@ -190,6 +190,8 @@ func initializeCircuitBreakers() {
 		projectService,
 		taskService,
 		notificationService,
+		workflowService,
+		activityHistoryService,
 	}
 	for _, serviceURL := range serviceURLs {
 		serviceCircuitBreakers[serviceURL] = gobreaker.NewCircuitBreaker(gobreaker.Settings{
