@@ -533,7 +533,7 @@ func (ph *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	err = ph.service.DeleteProjectWithTasks(ctx, projectID)
+	err = ph.service.DeleteProjectWithTasksAndWorkflows(ctx, projectID)
 	if err != nil {
 		span.RecordError(err)
 		LogEvent("5002", Error, "Failed to Delete Project - Internal Server Error", userId, projectID.Hex())

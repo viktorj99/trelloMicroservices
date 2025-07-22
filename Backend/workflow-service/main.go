@@ -10,6 +10,7 @@ import (
 	"workflow/services"
 
 	"github.com/gorilla/mux"
+	"github.com/nats-io/nats.go"
 	"github.com/neo4j/neo4j-go-driver/v5/neo4j"
 )
 
@@ -40,16 +41,31 @@ func main() {
 
 	for i := 0; i < 10; i++ {
 		if err := driver.VerifyConnectivity(); err == nil {
-		  break
+			break
 		}
 		log.Println("Neo4j not ready yet, waiting 2s...")
 		time.Sleep(5 * time.Second)
-	  }
+	}
 
-	// Initialize repository, service, and handler
+	// Connect to NATS
+	natsURL := os.Getenv("NATS_URL")
+	if natsURL == "" {
+		natsURL = "nats://nats:4222"
+	}
+	nc, err := nats.Connect(natsURL)
+	if err != nil {
+		logger.Fatalf("Failed to connect to NATS: %v", err)
+	}
+	defer nc.Close()
+
+	// Initialize repository, service (pass nc), and handler
 	workflowRepo := repositories.NewWorkflowRepository(driver)
-	workflowService := services.NewWorkflowService(workflowRepo)
+	workflowService := services.NewWorkflowService(workflowRepo, nc, logger)
 	workflowHandler := handlers.NewWorkflowHandler(workflowService)
+
+	// Start NATS subscription listener for workflow deletions
+	go workflowService.ListenForWorkflowDeletion()
+	logger.Println("✅ Workflow deletion listener started")
 
 	// Setup router
 	router := mux.NewRouter()

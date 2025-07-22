@@ -389,3 +389,18 @@ func (repo *WorkflowRepository) GetTaskDependents(taskID string) ([]string, erro
 
 	return ids, nil
 }
+
+func (repo *WorkflowRepository) DeleteWorkflowsByProjectID(projectID string) error {
+	session := repo.driver.NewSession(neo4j.SessionConfig{})
+	defer session.Close()
+
+	query := `
+		MATCH (t:Task {project: $projectID})
+		DETACH DELETE t
+	`
+
+	_, err := session.Run(query, map[string]interface{}{
+		"projectID": projectID,
+	})
+	return err
+}

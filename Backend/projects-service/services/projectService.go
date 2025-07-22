@@ -158,9 +158,9 @@ func (ps *ProjectService) UpdateProject(ctx context.Context, id primitive.Object
 	return result, nil
 }
 
-func (ps *ProjectService) DeleteProjectWithTasks(ctx context.Context, projectID primitive.ObjectID) error {
+func (ps *ProjectService) DeleteProjectWithTasksAndWorkflows(ctx context.Context, projectID primitive.ObjectID) error {
 	tracer := otel.Tracer("projects-service")
-	ctx, span := tracer.Start(ctx, "DeleteProjectWithTasksService")
+	ctx, span := tracer.Start(ctx, "DeleteProjectWithTasksAndWorkflowsService")
 	defer span.End()
 
 	span.SetAttributes(attribute.String("project.id", projectID.Hex()))
@@ -168,6 +168,7 @@ func (ps *ProjectService) DeleteProjectWithTasks(ctx context.Context, projectID 
 	logger := log.New(os.Stdout, "INFO: ", log.LstdFlags)
 	logger.Printf("Starting to delete project with ID: %s", projectID.Hex())
 
+	// 1. Confirm project exists
 	_, err := ps.GetProjectById(ctx, projectID)
 	if err != nil {
 		logger.Printf("Project not found: %v", err)
@@ -175,14 +176,25 @@ func (ps *ProjectService) DeleteProjectWithTasks(ctx context.Context, projectID 
 		return err
 	}
 
-	responseCh := make(chan *nats.Msg, 1)
-	sub, err := ps.publisher.ChanSubscribe("tasks.deleted", responseCh)
+	// 2. Prepare channels for both confirmations
+	tasksCh := make(chan *nats.Msg, 1)
+	workflowsCh := make(chan *nats.Msg, 1)
+
+	subTasks, err := ps.publisher.ChanSubscribe("tasks.deleted", tasksCh)
 	if err != nil {
-		logger.Printf("Failed to subscribe to confirmation channel: %v", err)
+		logger.Printf("Failed to subscribe to tasks.deleted: %v", err)
 		span.RecordError(err)
-		return fmt.Errorf("failed to subscribe to confirmation channel: %w", err)
+		return err
 	}
-	defer sub.Unsubscribe()
+	defer subTasks.Unsubscribe()
+
+	subWorkflows, err := ps.publisher.ChanSubscribe("workflows.deleted", workflowsCh)
+	if err != nil {
+		logger.Printf("Failed to subscribe to workflows.deleted: %v", err)
+		span.RecordError(err)
+		return err
+	}
+	defer subWorkflows.Unsubscribe()
 
 	err = ps.publisher.Flush()
 	if err != nil {
@@ -191,42 +203,59 @@ func (ps *ProjectService) DeleteProjectWithTasks(ctx context.Context, projectID 
 		return err
 	}
 
+	// 3. Publish delete events
 	payload, _ := json.Marshal(map[string]string{"project_id": projectID.Hex()})
 	err = ps.publisher.Publish("tasks.delete", payload)
 	if err != nil {
-		logger.Printf("Failed to publish delete tasks event: %v", err)
+		logger.Printf("Failed to publish tasks.delete event: %v", err)
 		span.RecordError(err)
-		return fmt.Errorf("failed to publish delete tasks event: %w", err)
+		return err
 	}
 
-	select {
-	case msg := <-responseCh:
-		logger.Println("Received message from tasks.deleted topic")
-		var event map[string]string
-		if err := json.Unmarshal(msg.Data, &event); err != nil {
-			logger.Printf("Invalid confirmation message format: %v", err)
-			span.RecordError(err)
-			return fmt.Errorf("invalid confirmation message format: %w", err)
-		}
+	err = ps.publisher.Publish("workflows.delete", payload)
+	if err != nil {
+		logger.Printf("Failed to publish workflows.delete event: %v", err)
+		span.RecordError(err)
+		return err
+	}
 
-		if event["project_id"] != projectID.Hex() {
-			err := fmt.Errorf("confirmation received for incorrect project ID")
+	// 4. Wait for both confirmations (timeout after 20s)
+	for tasksCh != nil || workflowsCh != nil {
+		select {
+		case msg := <-tasksCh:
+			logger.Println("Received tasks.deleted confirmation")
+			var event map[string]string
+			if err := json.Unmarshal(msg.Data, &event); err != nil || event["project_id"] != projectID.Hex() {
+				err := fmt.Errorf("invalid tasks.deleted confirmation")
+				logger.Printf(err.Error())
+				span.RecordError(err)
+				return err
+			}
+			tasksCh = nil // received confirmation
+
+		case msg := <-workflowsCh:
+			logger.Println("Received workflows.deleted confirmation")
+			var event map[string]string
+			if err := json.Unmarshal(msg.Data, &event); err != nil || event["project_id"] != projectID.Hex() {
+				err := fmt.Errorf("invalid workflows.deleted confirmation")
+				logger.Printf(err.Error())
+				span.RecordError(err)
+				return err
+			}
+			workflowsCh = nil // received confirmation
+
+		case <-time.After(20 * time.Second):
+			err := fmt.Errorf("timeout waiting for deletion confirmations")
 			logger.Printf(err.Error())
 			span.RecordError(err)
 			return err
 		}
+	}
 
-		logger.Printf("Successfully received confirmation for project ID: %s", projectID.Hex())
-		_, err = ps.repo.Delete(ctx, projectID)
-		if err != nil {
-			logger.Printf("Failed to delete project: %v", err)
-			span.RecordError(err)
-			return fmt.Errorf("failed to delete project: %w", err)
-		}
-
-	case <-time.After(20 * time.Second):
-		err := fmt.Errorf("timeout waiting for task deletion confirmation")
-		logger.Printf("Timeout waiting for task deletion confirmation for project ID: %s", projectID.Hex())
+	// 5. Delete the project record once both deletions confirmed
+	_, err = ps.repo.Delete(ctx, projectID)
+	if err != nil {
+		logger.Printf("Failed to delete project: %v", err)
 		span.RecordError(err)
 		return err
 	}
