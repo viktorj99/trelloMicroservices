@@ -1,5 +1,3 @@
-const Home = () => {
-	return <div>gas</div>;
-};
+const Home = () => {};
 
 export default Home;

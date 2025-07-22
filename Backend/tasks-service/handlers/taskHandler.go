@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -445,4 +446,37 @@ func (h *TaskHandler) GetTasksWithDependencies(w http.ResponseWriter, r *http.Re
 
 	w.Header().Set("Content-Type", "application/json")
 	json.NewEncoder(w).Encode(tasks)
+}
+
+
+func logActivityToService(ctx context.Context, activity map[string]interface{}) error {
+	activityServiceURL := os.Getenv("ACTIVITY_HISTORY_SERVICE")
+	if activityServiceURL == "" {
+		return fmt.Errorf("ACTIVITY_HISTORY_SERVICE not set")
+	}
+
+	body, err := json.Marshal(activity)
+	if err != nil {
+		return err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, "POST", activityServiceURL+"/activities/create", bytes.NewBuffer(body))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusCreated {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("activity logging failed: %s", string(respBody))
+	}
+
+	return nil
 }
