@@ -1,0 +1,68 @@
+
+Report Summary
+
+┌────────────┬────────────┬─────────────────┬───────────────────┐
+│   Target   │    Type    │ Vulnerabilities │ Misconfigurations │
+├────────────┼────────────┼─────────────────┼───────────────────┤
+│ go.mod     │   gomod    │        0        │         -         │
+├────────────┼────────────┼─────────────────┼───────────────────┤
+│ Dockerfile │ dockerfile │        -        │         0         │
+└────────────┴────────────┴─────────────────┴───────────────────┘
+Legend:
+- '-': Not scanned
+- '0': Clean (no security findings detected)
+
+
+=== REPORT NOTES ===
+
+Issue No.1:
+
+	Trivy detected a known vulnerability in github.com/dgrijalva/jwt-go:
+
+	- CVE-2020-26160 (HIGH): Access restriction bypass vulnerability
+
+	OWASP Top 10: A06 – Vulnerable and Outdated Components  
+	Using unmaintained or deprecated packages like jwt-go can expose the service to publicly known vulnerabilities.
+
+	OWASP ASVS 14.2.3 – Use tools to identify and patch known vulnerabilities in libraries.  
+	Keeping libraries up-to-date helps prevent exploitation of known CVEs and maintains the integrity of authentication and authorization mechanisms.
+
+Fix Applied:
+
+	Replaced the deprecated jwt-go module (github.com/dgrijalva/jwt-go v3.2.0) with the actively maintained fork  
+	(github.com/golang-jwt/jwt/v4), which is free from CVE-2020-26160 and supports modern Go features like `RegisteredClaims`.
+
+Issue No.2:
+
+	Trivy detected two vulnerabilities in golang.org/x/crypto used in go.mod:
+
+	- CVE-2024-45337 (CRITICAL): Authorization bypass in PublicKeyCallback
+	- CVE-2025-22869 (HIGH): Denial of Service in SSH Key Exchange
+
+	OWASP Top 10: A06 – Vulnerable and Outdated Components  
+	Failure to upgrade security libraries can result in direct bypass of authentication or service disruption.
+
+	OWASP ASVS 14.2.3 – Use tools to identify and patch known vulnerabilities in libraries.
+
+Fix Applied:
+
+	Upgraded golang.org/x/crypto module from version v0.30.0 to v0.35.0 to resolve both vulnerabilities.
+
+Issue No.3:
+
+	Dockerfile was missing a USER instruction, which means containers run as root by default.
+
+	This poses a high risk: running containers as root enables privilege escalation and potential container breakout  
+	in the event of exploitation or compromise.
+
+	OWASP Top 10: A06 – Vulnerable and Outdated Components  
+	Insecure container configurations fall under this category, especially when root privileges are misused.
+
+	OWASP ASVS 1.4.6 – Verify that all components run with least privilege.  
+	Using a non-root user reduces attack surface and adheres to container hardening best practices.
+
+Fix Applied:
+
+	Added a `USER` directive in Dockerfile to enforce execution as a non-root user.
+	This improves runtime security and aligns with best practices for containerized deployments.
+

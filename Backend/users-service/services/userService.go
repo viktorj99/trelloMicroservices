@@ -16,7 +16,7 @@ import (
 	"users-service/repositories"
 	"users-service/utils"
 
-	"github.com/dgrijalva/jwt-go"
+	"github.com/golang-jwt/jwt/v4"
 	"github.com/hashicorp/consul/api"
 	"github.com/microcosm-cc/bluemonday"
 	"go.mongodb.org/mongo-driver/mongo"

@@ -32,5 +32,8 @@ COPY --from=builder /app/tasks-service .
 EXPOSE 8080
 EXPOSE 8443
 
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
 # Run the application
 CMD ["./tasks-service"]

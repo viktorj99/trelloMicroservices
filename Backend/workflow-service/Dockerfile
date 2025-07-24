@@ -18,4 +18,7 @@ COPY --from=builder /app/workflow-service .
 
 EXPOSE 8085
 
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+USER appuser
+
 CMD ["./workflow-service"]

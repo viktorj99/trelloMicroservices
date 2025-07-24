@@ -1,0 +1,50 @@
+
+Report Summary
+
+┌────────────┬────────────┬─────────────────┬───────────────────┐
+│   Target   │    Type    │ Vulnerabilities │ Misconfigurations │
+├────────────┼────────────┼─────────────────┼───────────────────┤
+│ go.mod     │   gomod    │        0        │         -         │
+├────────────┼────────────┼─────────────────┼───────────────────┤
+│ Dockerfile │ dockerfile │        -        │         0         │
+└────────────┴────────────┴─────────────────┴───────────────────┘
+Legend:
+- '-': Not scanned
+- '0': Clean (no security findings detected)
+
+=== REPORT NOTES ===
+
+Issue No.1:
+
+	Trivy detected two known vulnerabilities in golang.org/x/crypto in go.mod:
+
+	- CVE-2024-45337 (CRITICAL): Authorization bypass in PublicKeyCallback
+	- CVE-2025-22869 (HIGH): Denial of Service in SSH Key Exchange
+
+	OWASP Top 10: A06 – Vulnerable and Outdated Components
+	Ensuring dependencies are up-to-date prevents known exploits from being used against the service.
+
+	OWASP ASVS 14.2.3 – Use tools to identify and patch known vulnerabilities in libraries.
+
+Fix Applied:
+
+	Upgraded golang.org/x/crypto module from version v0.19.0 to v0.35.0 to resolve both vulnerabilities.
+
+Issue No.2:
+
+	Dockerfile configuration allowed the container to run as the root user, which increases the risk of privilege escalation or container breakout in case of compromise.
+
+	This configuration weakens container isolation and violates the principle of least privilege, exposing the service to greater risk during runtime.
+
+	OWASP Top 10: A06 – Vulnerable and Outdated Components  
+	Although primarily about dependencies, A06 includes insecure configurations, such as unsafe Dockerfile practices, which can amplify impact.
+
+	OWASP ASVS 1.4.6 – Verify that all components run with least privilege.  
+	ASVS explicitly calls for avoiding containers running as root to reduce the attack surface and limit lateral movement.
+
+Fix Applied:
+
+	Added a non-root USER directive to the Dockerfile to ensure the container does not run as root, improving security and 	aligning with container hardening best practices.
+
+
+
