@@ -123,6 +123,9 @@ const Navbar: React.FC = () => {
                                 </span>
                             </Badge>
                         </Menu.Item>
+                        <Menu.Item key="activityHistory" icon={<SettingOutlined />}>
+                            <Link to="/activity-history">Activity History</Link>
+                        </Menu.Item>
                         <Drawer
                             title="Notifications"
                             placement="right"

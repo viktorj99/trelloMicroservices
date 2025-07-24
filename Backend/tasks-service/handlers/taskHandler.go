@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	"tasks-service/client"
 	"tasks-service/model"
@@ -108,6 +109,19 @@ func (h *TaskHandler) CreateTask(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Failed to create task", http.StatusInternalServerError)
 		return
 	}
+
+	// Log activity async
+	go func() {
+		activity := map[string]interface{}{
+			"projectId":    createdTask.Project.Hex(),
+			"activityType": "CreateTask",
+			"taskId":       createdTask.ID.Hex(),
+			"description":  fmt.Sprintf("Task '%s' created", createdTask.Title),
+		}
+		if err := logActivityToService(activity); err != nil {
+			h.logger.Printf("Failed to log CreateTask activity: %v", err)
+		}
+	}()
 
 	workflowServiceURL := os.Getenv("WORKFLOW_SERVICE_URL")
 	if workflowServiceURL == "" {
@@ -234,6 +248,22 @@ func (h *TaskHandler) AssignMemberToTask(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	// Log activity async
+	go func() {
+		activity := map[string]interface{}{
+			"projectId":    projectID,
+			"activityType": "AssignMemberToTask",
+			"taskId":       taskObjectID.Hex(),
+			"userId":       memberID,
+			"details": map[string]string{
+				"description": fmt.Sprintf("Member %s assigned to task %s", memberID, taskID),
+			},
+		}
+		if err := logActivityToService(activity); err != nil {
+			h.logger.Printf("Failed to log AssignMember activity: %v", err)
+		}
+	}()
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Member assigned to task successfully"))
 }
@@ -351,6 +381,22 @@ func (h *TaskHandler) ToggleTaskStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Log activity async
+	go func() {
+		activity := map[string]interface{}{
+			"projectId":    projectID,
+			"activityType": "UpdateTaskStatus",
+			"taskId":       taskID,
+			"userId":       memberID,
+			"details": map[string]string{
+				"description": fmt.Sprintf("Task %s status changed to %s", taskID, updateStatus),
+			},
+		}
+		if err := logActivityToService(activity); err != nil {
+			h.logger.Printf("Failed to log UpdateTaskStatus activity: %v", err)
+		}
+	}()
+
 	httpClient := &http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
@@ -424,6 +470,19 @@ func (h *TaskHandler) RemoveMemberFromTask(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	// Log activity async
+	go func() {
+		activity := map[string]interface{}{
+			"projectId":    task.Project.Hex(),
+			"activityType": "RemoveMemberFromTask",
+			"taskId":       taskID,
+			"description":  fmt.Sprintf("Member removed from task %s", taskID),
+		}
+		if err := logActivityToService(activity); err != nil {
+			h.logger.Printf("Failed to log RemoveMember activity: %v", err)
+		}
+	}()
+
 	w.WriteHeader(http.StatusOK)
 	w.Write([]byte("Member removed from task successfully"))
 }
@@ -448,8 +507,7 @@ func (h *TaskHandler) GetTasksWithDependencies(w http.ResponseWriter, r *http.Re
 	json.NewEncoder(w).Encode(tasks)
 }
 
-
-func logActivityToService(ctx context.Context, activity map[string]interface{}) error {
+func logActivityToService(activity map[string]interface{}) error {
 	activityServiceURL := os.Getenv("ACTIVITY_HISTORY_SERVICE")
 	if activityServiceURL == "" {
 		return fmt.Errorf("ACTIVITY_HISTORY_SERVICE not set")
@@ -460,7 +518,13 @@ func logActivityToService(ctx context.Context, activity map[string]interface{}) 
 		return err
 	}
 
-	req, err := http.NewRequestWithContext(ctx, "POST", activityServiceURL+"/activities/create", bytes.NewBuffer(body))
+	log.Println("Sending activity log for CreateTask to activity-history-service")
+
+	// Use a separate context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", activityServiceURL+"/activities", bytes.NewBuffer(body))
 	if err != nil {
 		return err
 	}

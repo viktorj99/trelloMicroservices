@@ -15,8 +15,6 @@ import (
 	"projects-service/services"
 	"time"
 
-	"github.com/google/uuid"
-
 	"github.com/gorilla/mux"
 	"github.com/microcosm-cc/bluemonday"
 	"go.mongodb.org/mongo-driver/bson"
@@ -29,14 +27,16 @@ type ProjectHandler struct {
 	service    *services.ProjectService
 	taskClient *client.TaskClient
 	userClient *client.UserClient
+	logger     *log.Logger
 }
 
 // NewProjectHandler creates a new ProjectHandler instance
-func NewProjectHandler(service *services.ProjectService, taskClient *client.TaskClient, userClient *client.UserClient) *ProjectHandler {
+func NewProjectHandler(service *services.ProjectService, taskClient *client.TaskClient, userClient *client.UserClient, logger *log.Logger) *ProjectHandler {
 	return &ProjectHandler{
 		service:    service,
 		taskClient: taskClient,
 		userClient: userClient,
+		logger:     logger,
 	}
 }
 
@@ -173,6 +173,21 @@ func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 	var projectID string
 	projectID = result.InsertedID.(primitive.ObjectID).Hex()
 
+	// Log activity asynchronously
+	go func() {
+		activity := map[string]interface{}{
+			"projectId":    projectID,
+			"activityType": "CreateProject",
+			"userId":       project.Manager.ID.Hex(),
+			"details": map[string]string{
+				"description": fmt.Sprintf("Project '%s' created by manager %s", project.Name, project.Manager.ID.Hex()),
+			},
+		}
+		if err := logActivityToService(activity); err != nil {
+			ph.logger.Printf("Failed to log CreateProject activity: %v", err)
+		}
+	}()
+
 	span.SetAttributes(attribute.String("project.name", project.Name))
 	LogEvent("1000", Success, "Project created successfully", project.Manager.ID.Hex(), projectID)
 
@@ -180,48 +195,41 @@ func (ph *ProjectHandler) CreateProject(w http.ResponseWriter, r *http.Request) 
 	json.NewEncoder(w).Encode(result)
 }
 
-func logActivityToService(ctx context.Context, activity model.ActivityDTO) error {
+func logActivityToService(activity map[string]interface{}) error {
 	activityServiceURL := os.Getenv("ACTIVITY_HISTORY_SERVICE")
 	if activityServiceURL == "" {
-		log.Println("ACTIVITY_HISTORY_SERVICE environment variable is not set")
-		return fmt.Errorf("ACTIVITY_HISTORY_SERVICE environment variable is not set")
+		return fmt.Errorf("ACTIVITY_HISTORY_SERVICE not set")
 	}
-
-	log.Printf("Activity Service URL: %s", activityServiceURL)
-
-	requestURL := fmt.Sprintf("%s/activities/create", activityServiceURL)
-	log.Printf("Activity Service Request URL: %s", requestURL)
 
 	body, err := json.Marshal(activity)
 	if err != nil {
-		log.Printf("Failed to marshal activity: %v", err)
-		return fmt.Errorf("failed to marshal activity: %w", err)
+		return err
 	}
 
-	log.Printf("Activity Payload: %s", string(body))
+	log.Println("Sending activity log for CreateTask to activity-history-service")
 
-	req, err := http.NewRequestWithContext(ctx, "POST", requestURL, bytes.NewBuffer(body))
+	// Use a separate context with timeout
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	req, err := http.NewRequestWithContext(ctx, "POST", activityServiceURL+"/activities", bytes.NewBuffer(body))
 	if err != nil {
-		log.Printf("Failed to create HTTP request: %v", err)
-		return fmt.Errorf("failed to create request: %w", err)
+		return err
 	}
 	req.Header.Set("Content-Type", "application/json")
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Printf("Failed to send HTTP request: %v", err)
-		return fmt.Errorf("failed to send request: %w", err)
+		return err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusCreated {
-		responseBody, _ := io.ReadAll(resp.Body)
-		log.Printf("Failed to log activity. Status Code: %d, Response: %s", resp.StatusCode, string(responseBody))
-		return fmt.Errorf("failed to log activity, status code: %d", resp.StatusCode)
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf("activity logging failed: %s", string(respBody))
 	}
 
-	log.Println("Activity logged successfully")
 	return nil
 }
 
@@ -308,22 +316,20 @@ func (ph *ProjectHandler) AddMemberToProject(w http.ResponseWriter, r *http.Requ
 			return
 		}
 
-		activity := model.ActivityDTO{
-			ID:           uuid.New().String(),
-			ProjectID:    projectID,
-			UserID:       member.ID.Hex(),
-			ManagerID:    project.Manager.ID.Hex(),
-			ActivityType: "AddUser",
-			Timestamp:    time.Now(),
-			Description:  fmt.Sprintf("Manager %s added user %s to project %s.", project.Manager.ID.Hex(), member.ID.Hex(), projectID),
-		}
-
-		err := logActivityToService(ctx, activity)
-		if err != nil {
-			span.RecordError(err)
-			http.Error(w, "Failed to log activity", http.StatusInternalServerError)
-			return
-		}
+		userIdCopy := TokenUserId
+		go func(userId string) {
+			activity := map[string]interface{}{
+				"projectId":    projectID,
+				"activityType": "AddMemberToProject",
+				"userId":       userId,
+				"details": map[string]string{
+					"description": fmt.Sprintf("User %s added member %s to project %s", userId, member.ID.Hex(), projectID),
+				},
+			}
+			if err := logActivityToService(activity); err != nil {
+				ph.logger.Printf("Failed to log AddMemberToProject activity: %v", err)
+			}
+		}(userIdCopy)
 
 		span.SetAttributes(attribute.String("project.id", id.Hex()), attribute.String("member.id", member.ID.Hex()))
 		w.WriteHeader(http.StatusOK)
@@ -422,6 +428,21 @@ func (ph *ProjectHandler) RemoveMemberFromProject(w http.ResponseWriter, r *http
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	userIdCopy := userId
+	go func(userId string) {
+		activity := map[string]interface{}{
+			"projectId":    projectID,
+			"activityType": "RemoveMemberFromProject",
+			"userId":       userId,
+			"details": map[string]string{
+				"description": fmt.Sprintf("User %s removed member %s from project %s", userId, member.ID.Hex(), projectID),
+			},
+		}
+		if err := logActivityToService(activity); err != nil {
+			ph.logger.Printf("Failed to log RemoveMemberFromProject activity: %v", err)
+		}
+	}(userIdCopy)
 
 	span.SetAttributes(
 		attribute.String("project.id", projectID),
@@ -540,6 +561,21 @@ func (ph *ProjectHandler) DeleteProject(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Log delete activity asynchronously
+	go func() {
+		activity := map[string]interface{}{
+			"projectId":    projectID.Hex(),
+			"activityType": "DeleteProject",
+			"userId":       userId,
+			"details": map[string]string{
+				"description": fmt.Sprintf("Project %s deleted by user %s", projectID.Hex(), userId),
+			},
+		}
+		if err := logActivityToService(activity); err != nil {
+			ph.logger.Printf("Failed to log DeleteProject activity: %v", err)
+		}
+	}()
 
 	span.SetAttributes(attribute.String("project.id", projectID.Hex()))
 	w.WriteHeader(http.StatusAccepted)

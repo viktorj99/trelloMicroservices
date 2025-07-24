@@ -16,14 +16,16 @@ import (
 )
 
 type DocumentHandler struct {
-	service *services.DocumentService
-	logger  *log.Logger
+	service     *services.DocumentService
+	taskService *services.TaskService
+	logger      *log.Logger
 }
 
-func NewDocumentHandler(service *services.DocumentService, logger *log.Logger) *DocumentHandler {
+func NewDocumentHandler(docService *services.DocumentService, taskService *services.TaskService, logger *log.Logger) *DocumentHandler {
 	return &DocumentHandler{
-		service: service,
-		logger:  logger,
+		service:     docService,
+		taskService: taskService,
+		logger:      logger,
 	}
 }
 
@@ -61,6 +63,28 @@ func (h *DocumentHandler) UploadDocumentHandler(w http.ResponseWriter, r *http.R
 	if err != nil {
 		http.Error(w, "Error uploading document: "+err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	//Activity log
+	task, err := h.taskService.GetTaskById(ctx, taskID)
+	if err != nil {
+		h.logger.Println("Failed to fetch task for activity logging:", err)
+	} else {
+		activity := map[string]interface{}{
+			"projectId":    task.Project.Hex(),
+			"taskId":       taskID,
+			"userId":       userID,
+			"activityType": "UploadDocument",
+			"details": map[string]string{
+				"fileName": fileName,
+			},
+		}
+
+		go func() {
+			if err := logActivityToService(activity); err != nil {
+				h.logger.Printf("Failed to log UploadDocument activity: %v", err)
+			}
+		}()
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -123,10 +147,43 @@ func (h *DocumentHandler) DeleteDocumentHandler(w http.ResponseWriter, r *http.R
 	}
 
 	// Now use the decoded `fileName` for matching in Mongo
-	err = h.service.DeleteDocument(r.Context(), taskID, fileName)
+	ctx := r.Context()
+	err = h.service.DeleteDocument(ctx, taskID, fileName)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("Error deleting document: %v", err), http.StatusInternalServerError)
 		return
+	}
+
+	// Fetch task to get ProjectID for activity log
+	task, err := h.taskService.GetTaskById(ctx, taskID)
+	if err != nil {
+		h.logger.Println("Failed to fetch task for activity logging:", err)
+	} else {
+		userId := ctx.Value("userId") // or "TokenUserId" depending on your middleware
+		userIdStr := ""
+		if id, ok := userId.(string); ok {
+			userIdStr = id
+		}
+
+		projectId := task.Project.Hex()
+		fileNameCopy := fileName // for goroutine safety
+		taskIDCopy := taskID
+		userIdCopy := userIdStr
+
+		go func() {
+			activity := map[string]interface{}{
+				"projectId":    projectId,
+				"taskId":       taskIDCopy,
+				"userId":       userIdCopy,
+				"activityType": "DeleteDocument",
+				"details": map[string]string{
+					"fileName": fileNameCopy,
+				},
+			}
+			if err := logActivityToService(activity); err != nil {
+				h.logger.Printf("Failed to log DeleteDocument activity: %v", err)
+			}
+		}()
 	}
 
 	w.WriteHeader(http.StatusNoContent)

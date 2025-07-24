@@ -121,7 +121,7 @@ func main() {
 	go taskService.Start()
 
 	taskHandler := handlers.NewTaskHandler(taskService, logger, projectServiceClient)
-	documentHandler := handlers.NewDocumentHandler(documentService, logger) // Create Document Handler
+	documentHandler := handlers.NewDocumentHandler(documentService, taskService, logger) // Create Document Handler
 	router := mux.NewRouter()
 
 	router.HandleFunc("/tasks", func(w http.ResponseWriter, r *http.Request) {

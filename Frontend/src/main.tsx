@@ -19,6 +19,7 @@ import SendMagicLink from './page/SendMagicLink';
 import MagicLogin from './page/MagicLogin';
 import SingleTask from './page/SingleTask';
 import Profile from './page/Profile';
+import ActivityHistory from './page/ActivityHistory';
 
 export const router = createBrowserRouter([
 	{
@@ -76,6 +77,10 @@ export const router = createBrowserRouter([
 			{
 				path: '/magic-login',
 				element: <MagicLogin />,
+			},
+			{
+				path: '/activity-history',
+				element: isManager() || isMember() ? <ActivityHistory /> : <Navigate to='/login' />,
 			},
 		],
 	},

@@ -7,6 +7,7 @@ import (
 
 	"activity-history-service/handlers"
 	"activity-history-service/repositories"
+	"activity-history-service/services"
 
 	"github.com/gorilla/mux"
 )
@@ -22,12 +23,13 @@ func main() {
 		log.Fatalf("Failed to connect to EventStoreDB: %v", err)
 	}
 
-	activityHandler := handlers.LogActivity(repo)
-	getActivitiesHandler := handlers.GetActivitiesByProject(repo)
+	service := services.NewActivityService(repo)
+	handler := handlers.NewActivityHandler(service)
 
 	router := mux.NewRouter()
-	router.HandleFunc("/activities/create", activityHandler).Methods("POST")
-	router.HandleFunc("/activities/project/{projectId}", getActivitiesHandler).Methods("GET")
+	router.HandleFunc("/activities", handler.LogActivity).Methods("POST")
+	router.HandleFunc("/activities/project/{projectId}", handler.GetActivitiesByProject).Methods("GET")
+	router.HandleFunc("/activities/user/{userId}", handler.GetActivitiesByUser).Methods("GET")
 
 	errChan := make(chan error)
 

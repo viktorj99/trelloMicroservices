@@ -40,6 +40,7 @@ services:
       - NATS_URL=nats://nats:4222
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - ACTIVITY_HISTORY_SERVICE=http://activity-history-service:8080
     networks:
       - app-network
     volumes:
@@ -64,6 +65,7 @@ services:
       - NATS_URL=nats://nats:4222
       - JAEGER_ENDPOINT=http://jaeger:14268/api/traces
       - OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+      - ACTIVITY_HISTORY_SERVICE=http://activity-history-service:8080 
     networks:
       - app-network
     volumes:
