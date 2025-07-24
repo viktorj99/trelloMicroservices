@@ -13,10 +13,10 @@ RUN go clean -modcache
 # Download Go module dependencies
 RUN go mod download
 
-# Copy the entire notification-service directory
+# Copy the entire activity-history-service directory
 COPY activity-history-service/. .
 
-# Build the Go binary for the notification service
+# Build the Go binary for the activity-history-service
 RUN go build -o activity-history-service .
 
 # Create a smaller image for production
@@ -25,10 +25,13 @@ FROM alpine:latest
 # Set working directory in the final container
 WORKDIR /app/
 
+# Create the group and user (must be done before chown and USER)
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/activity-history-service .
 
-# Set permissions (optional, depending on the binary)
+# Set ownership of /app directory to appuser:appgroup
 RUN chown -R appuser:appgroup /app
 
 # Expose the application port (adjust if necessary)
