@@ -32,5 +32,9 @@ COPY --from=builder /app/notifications-service .
 EXPOSE 8080
 EXPOSE 8443
 
+# Create a non-root user
+RUN adduser -D appuser
+USER appuser
+
 # Set the entry point for the container
 CMD ["./notifications-service"]

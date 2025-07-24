@@ -30,9 +30,15 @@ WORKDIR /app/
 # Copy the binary file from the previous phase
 COPY --from=builder /app/projects-service .
 
+# Dodaj korisnika i grupu ako nije već dodato (npr. user 'appuser')
+RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+
 # Expose the port (adjust if needed)
 EXPOSE 8080
 EXPOSE 8443
+
+# Pokreni kontejner kao appuser (non-root)
+USER appuser
 
 # Run the application
 CMD ["./projects-service"]

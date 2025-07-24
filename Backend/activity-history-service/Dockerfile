@@ -28,9 +28,15 @@ WORKDIR /app/
 # Copy the compiled binary from the builder stage
 COPY --from=builder /app/activity-history-service .
 
+# Set permissions (optional, depending on the binary)
+RUN chown -R appuser:appgroup /app
+
 # Expose the application port (adjust if necessary)
 EXPOSE 8080
 EXPOSE 8443
+
+# Switch to the non-root user
+USER appuser
 
 # Set the entry point for the container
 CMD ["./activity-history-service"]

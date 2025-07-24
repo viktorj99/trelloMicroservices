@@ -1,0 +1,45 @@
+
+Report Summary
+
+┌────────────┬────────────┬─────────────────┬───────────────────┐
+│   Target   │    Type    │ Vulnerabilities │ Misconfigurations │
+├────────────┼────────────┼─────────────────┼───────────────────┤
+│ go.mod     │   gomod    │        2        │         -         │
+├────────────┼────────────┼─────────────────┼───────────────────┤
+│ Dockerfile │ dockerfile │        -        │         1         │
+└────────────┴────────────┴─────────────────┴───────────────────┘
+Legend:
+- '-': Not scanned
+- '0': Clean (no security findings detected)
+
+
+go.mod (gomod)
+==============
+Total: 2 (HIGH: 1, CRITICAL: 1)
+
+┌─────────────────────┬────────────────┬──────────┬────────┬───────────────────┬───────────────┬────────────────────────────────────────────────────────┐
+│       Library       │ Vulnerability  │ Severity │ Status │ Installed Version │ Fixed Version │                         Title                          │
+├─────────────────────┼────────────────┼──────────┼────────┼───────────────────┼───────────────┼────────────────────────────────────────────────────────┤
+│ golang.org/x/crypto │ CVE-2024-45337 │ CRITICAL │ fixed  │ v0.27.0           │ 0.31.0        │ golang.org/x/crypto/ssh: Misuse of                     │
+│                     │                │          │        │                   │               │ ServerConfig.PublicKeyCallback may cause authorization │
+│                     │                │          │        │                   │               │ bypass in golang.org/x/crypto                          │
+│                     │                │          │        │                   │               │ https://avd.aquasec.com/nvd/cve-2024-45337             │
+│                     ├────────────────┼──────────┤        │                   ├───────────────┼────────────────────────────────────────────────────────┤
+│                     │ CVE-2025-22869 │ HIGH     │        │                   │ 0.35.0        │ golang.org/x/crypto/ssh: Denial of Service in the Key  │
+│                     │                │          │        │                   │               │ Exchange of golang.org/x/crypto/ssh                    │
+│                     │                │          │        │                   │               │ https://avd.aquasec.com/nvd/cve-2025-22869             │
+└─────────────────────┴────────────────┴──────────┴────────┴───────────────────┴───────────────┴────────────────────────────────────────────────────────┘
+
+Dockerfile (dockerfile)
+=======================
+Tests: 20 (SUCCESSES: 19, FAILURES: 1)
+Failures: 1 (HIGH: 1, CRITICAL: 0)
+
+AVD-DS-0002 (HIGH): Specify at least 1 USER command in Dockerfile with non-root user as argument
+════════════════════════════════════════
+Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.
+
+See https://avd.aquasec.com/misconfig/ds002
+────────────────────────────────────────
+
+
